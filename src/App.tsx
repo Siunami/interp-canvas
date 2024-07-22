@@ -17,7 +17,6 @@ import {
 	track,
 	useEditor,
 	TLEventInfo,
-	TLOnClickHandler,
 	Editor,
 } from "tldraw";
 import "tldraw/tldraw.css";
@@ -63,6 +62,7 @@ const components: TLComponents = {
 type CardShape = TLBaseShape<"card", { w: number; h: number; text: string }>;
 
 class CardShapeUtil extends ShapeUtil<CardShape> {
+	// @ts-ignore
 	static override type = "card" as const;
 
 	getDefaultProps(): CardShape["props"] {
@@ -112,11 +112,6 @@ class CardShapeUtil extends ShapeUtil<CardShape> {
 	indicator(shape: CardShape) {
 		return <rect width={shape.props.w} height={shape.props.h} />;
 	}
-
-	// override onClick: TLOnClickHandler<CardShape> = (shape) => {
-	// 	console.log("Card clicked:", shape);
-	// 	return undefined;
-	// };
 }
 
 const customShape = [CardShapeUtil];
@@ -216,10 +211,10 @@ function App() {
 				<Tldraw
 					components={components}
 					shapeUtils={customShape}
-					onMount={(editor) => {
+					onMount={(editor: Editor) => {
 						setEditor(editor);
 						editor.createShape({ type: "card", x: 100, y: 100 });
-						editor.on("event", (event) => handleEvent(event));
+						editor.on("event", (event: TLEventInfo) => handleEvent(event));
 					}}
 				>
 					<CustomUi />
