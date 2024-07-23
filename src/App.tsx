@@ -18,6 +18,9 @@ import {
 	useEditor,
 	TLEventInfo,
 	Editor,
+	createShapeId,
+	TLShapeUtilCanBindOpts,
+	ArrowBindingUtil,
 } from "tldraw";
 import "tldraw/tldraw.css";
 
@@ -59,7 +62,10 @@ const components: TLComponents = {
 };
 
 //
-type CardShape = TLBaseShape<"card", { w: number; h: number; text: string }>;
+type CardShape = TLBaseShape<
+	"card",
+	{ w: number; h: number; feature: string; description: string }
+>;
 
 class CardShapeUtil extends ShapeUtil<CardShape> {
 	// @ts-ignore
@@ -69,7 +75,8 @@ class CardShapeUtil extends ShapeUtil<CardShape> {
 		return {
 			w: 100,
 			h: 100,
-			text: "1",
+			feature: "10138",
+			description: "related to London",
 		};
 	}
 
@@ -79,6 +86,11 @@ class CardShapeUtil extends ShapeUtil<CardShape> {
 			height: shape.props.h,
 			isFilled: true,
 		});
+	}
+
+	override canBind({}: TLShapeUtilCanBindOpts<CardShape>) {
+		// Allow pins to participate in other bindings, e.g. arrows
+		return true;
 	}
 
 	component(shape: CardShape) {
@@ -92,12 +104,16 @@ class CardShapeUtil extends ShapeUtil<CardShape> {
 					}
 					return (
 						<HTMLContainer className="card-container">
-							Feature {shape.props.text}
+							<b>{shape.props.feature}</b>
+							<br />
+							<span>{shape.props.description}</span>
 							<button
 								onClick={(e) => {
 									e.stopPropagation();
-									console.log("hi");
-									context.setFeatureNumber(1);
+									context.setFeatureNumber((prev) => {
+										if (prev !== 1) return 1;
+										return prev;
+									});
 								}}
 							>
 								hi
@@ -187,23 +203,127 @@ function App() {
 
 	const [editor, setEditor] = useState<Editor | null>(null);
 
-	const handleEvent = useCallback(
-		(data: TLEventInfo) => {
-			console.log(data.name);
-			if (data.name == "pointer_up" && editor) {
-				console.log(data);
+	// const handleEvent = useCallback(
+	// 	(data: TLEventInfo) => {
+	// 		console.log(data.name);
+	// 		if (data.name === "pointer_up") {
+	// 			console.log(editor?.getSelectedShapeIds());
+	// 		}
+	// 		// if (data.name === "pointer_up" && editor) {
+	// 		// 	const selectedShapes = editor.getSelectedShapes();
+	// 		// 	if (selectedShapes.length > 0) {
+	// 		// 		console.log(selectedShapes[0]);
+	// 		// 	}
+	// 		// }
+	// 	},
+	// 	[editor]
+	// );
 
-				const selectedShapes = editor.getSelectedShapes();
+	function handleEvent(name: string, data: any) {
+		// do something with the event
+		console.log(name);
+	}
 
-				console.log(selectedShapes);
-				if (selectedShapes.length > 0) {
-					const selectedShape = selectedShapes[0];
-					console.log(selectedShape);
-				}
-			}
-		},
-		[editor]
-	);
+	useEffect(() => {
+		if (editor) {
+			const ids = {
+				box1: createShapeId("box1"),
+				box2: createShapeId("box2"),
+				box3: createShapeId("box3"),
+				arrow1: createShapeId("arrow1"),
+				arrow2: createShapeId("arrow2"),
+			};
+			editor
+				.createShapes([
+					{
+						id: ids.box1,
+						type: "geo",
+						x: 100,
+						y: 100,
+						props: { w: 100, h: 100 },
+					},
+					{
+						id: ids.box2,
+						type: "geo",
+						x: 300,
+						y: 300,
+						props: { w: 100, h: 100 },
+					},
+					{
+						id: ids.box3,
+						type: "geo",
+						x: 300,
+						y: 100,
+						props: { w: 100, h: 100 },
+					},
+					{
+						id: ids.arrow1,
+						type: "arrow",
+						x: 150,
+						y: 150,
+						props: {
+							text: "2",
+						},
+					},
+					{
+						id: ids.arrow2,
+						type: "arrow",
+						x: 150,
+						y: 150,
+						props: {
+							text: "1",
+						},
+					},
+				])
+				.createBindings([
+					{
+						fromId: ids.arrow1,
+						toId: ids.box1,
+						type: "arrow",
+						props: {
+							terminal: "start",
+							normalizedAnchor: { x: 0.5, y: 0.5 },
+							isExact: false,
+							isPrecise: false,
+						},
+					},
+					{
+						fromId: ids.arrow1,
+						toId: ids.box2,
+						type: "arrow",
+						props: {
+							terminal: "end",
+							normalizedAnchor: { x: 0.5, y: 0.5 },
+							isExact: false,
+							isPrecise: false,
+						},
+					},
+					{
+						fromId: ids.arrow2,
+						toId: ids.box1,
+						type: "arrow",
+						props: {
+							terminal: "start",
+							normalizedAnchor: { x: 0.5, y: 0.5 },
+							isExact: false,
+							isPrecise: false,
+						},
+					},
+					{
+						fromId: ids.arrow2,
+						toId: ids.box3,
+						type: "arrow",
+						props: {
+							terminal: "end",
+							normalizedAnchor: { x: 0.5, y: 0.5 },
+							isExact: false,
+							isPrecise: false,
+						},
+					},
+				]);
+			// console.log(editor.getCurrentPageShapesSorted());
+		}
+	}, [editor]);
 
 	return (
 		<FeatureContext.Provider value={{ featureNumber, setFeatureNumber }}>
@@ -211,10 +331,11 @@ function App() {
 				<Tldraw
 					components={components}
 					shapeUtils={customShape}
+					onUiEvent={handleEvent}
 					onMount={(editor: Editor) => {
 						setEditor(editor);
-						editor.createShape({ type: "card", x: 100, y: 100 });
-						editor.on("event", (event: TLEventInfo) => handleEvent(event));
+
+						// editor.on("event", (event: TLEventInfo) => handleEvent(event));
 					}}
 				>
 					<CustomUi />
