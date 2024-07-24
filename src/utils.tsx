@@ -4,7 +4,7 @@ const getBaseUrl = () => {
 		: "https://steering-explorer-server.vercel.app";
 };
 
-export const fetchCosineSim = async (index) => {
+export const fetchCosineSim = async (index: number) => {
 	console.log("fetching: " + index);
 	try {
 		const response = await fetch(`${getBaseUrl()}/get_cos_sim?index=${index}`);
@@ -18,7 +18,7 @@ export const fetchCosineSim = async (index) => {
 	}
 };
 
-export const fetchDescriptions = async (keys) => {
+export const fetchDescriptions = async (keys: number[]) => {
 	console.log("fetching descriptions for keys:", keys);
 	try {
 		const response = await fetch(`${getBaseUrl()}/get_description`, {
@@ -41,22 +41,20 @@ export const fetchDescriptions = async (keys) => {
 	}
 };
 
-export const fetchSearchResults = async (searchQuery, setSearchResults) => {
+export const fetchSearchResults = async (searchQuery: string) => {
 	if (searchQuery.trim().length < 2) {
-		// setSearchResults([]);
 		return;
 	}
 	try {
 		const response = await fetch(`${getBaseUrl()}/search/${searchQuery}`);
 		const data = await response.json();
-		// setSearchResults(data.slice(0, 40));
 		return data;
 	} catch (error) {
 		console.error("Error fetching search results:", error);
 	}
 };
 
-export const fetchTopEffects = async (feature) => {
+export const fetchTopEffects = async (feature: number) => {
 	console.log("fetching top effects for feature: " + feature);
 	try {
 		const response = await fetch(
@@ -72,7 +70,7 @@ export const fetchTopEffects = async (feature) => {
 	}
 };
 
-export const fetchTopActions = async (feature) => {
+export const fetchTopActions = async (feature: number) => {
 	console.log("fetching top actions for feature: " + feature);
 	try {
 		const response = await fetch(
@@ -80,11 +78,26 @@ export const fetchTopActions = async (feature) => {
 		);
 		if (!response.ok) {
 			throw new Error("Network response was not ok");
-			return;
 		}
 		const rawData = await response.json();
 		return rawData;
 	} catch (error) {
 		console.error("There was a problem fetching top actions:", error);
+	}
+};
+
+export const fetchCoOccurringEffects = async (feature: number) => {
+	console.log("fetching co-occurring effects for feature: " + feature);
+	try {
+		const response = await fetch(
+			`${getBaseUrl()}/get_co_occurring_effects?feature=${feature}`
+		);
+		if (!response.ok) {
+			throw new Error("Network response was not ok");
+		}
+		const rawData = await response.json();
+		return rawData;
+	} catch (error) {
+		console.error("There was a problem fetching co-occurring effects:", error);
 	}
 };

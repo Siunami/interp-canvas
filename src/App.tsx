@@ -1,26 +1,23 @@
 import React, {
 	useState,
 	createContext,
-	useContext,
+	// useContext,
 	useEffect,
-	useCallback,
 } from "react";
 
 import "./App.css";
 import {
 	Tldraw,
-	TLComponents,
+	// TLComponents,
 	TLBaseShape,
 	HTMLContainer,
 	ShapeUtil,
 	Rectangle2d,
 	track,
 	useEditor,
-	TLEventInfo,
 	Editor,
 	createShapeId,
 	TLShapeUtilCanBindOpts,
-	ArrowBindingUtil,
 	TLShapeId,
 } from "tldraw";
 import "tldraw/tldraw.css";
@@ -30,6 +27,7 @@ import {
 	fetchSearchResults,
 	fetchTopActions,
 	fetchTopEffects,
+	fetchCoOccurringEffects,
 } from "./utils";
 import { Retrieval, RETRIEVAL_TYPES } from "./types";
 
@@ -42,55 +40,55 @@ const FeatureContext = createContext<
 	| undefined
 >(undefined);
 
-const CustomNavigationPanel = track(() => {
-	const featureContext = useContext(FeatureContext);
-	if (!featureContext)
-		throw new Error("FeatureContext must be used within a FeatureProvider");
-	const { featureNumber, setFeatureNumber } = featureContext;
-	const [inputFeature, setInputFeature] = useState(featureNumber.toString());
+// const CustomNavigationPanel = track(() => {
+// 	const featureContext = useContext(FeatureContext);
+// 	if (!featureContext)
+// 		throw new Error("FeatureContext must be used within a FeatureProvider");
+// 	const { featureNumber, setFeatureNumber } = featureContext;
+// 	const [inputFeature, setInputFeature] = useState(featureNumber.toString());
 
-	const handleSubmit = (e: React.FormEvent) => {
-		e.preventDefault();
-		const newFeature = parseInt(inputFeature);
-		if (!isNaN(newFeature)) {
-			setFeatureNumber(newFeature);
-		}
-	};
+// 	const handleSubmit = (e: React.FormEvent) => {
+// 		e.preventDefault();
+// 		const newFeature = parseInt(inputFeature);
+// 		if (!isNaN(newFeature)) {
+// 			setFeatureNumber(newFeature);
+// 		}
+// 	};
 
-	return (
-		<div>
-			<div>
-				<form onSubmit={handleSubmit}>
-					<input
-						type="text"
-						value={inputFeature}
-						onChange={(e) => setInputFeature(e.target.value)}
-						placeholder="Enter feature number"
-					/>
-					<button type="submit">Update</button>
-				</form>
-			</div>
-			<iframe
-				src={`https://neuronpedia.org/gemma-2b/6-res-jb/${featureNumber}?embed=true`}
-				title="Neuronpedia"
-				className="neuronpedia-iframe"
-				style={{
-					pointerEvents: "auto",
-					overflow: "auto",
-					width: "400px",
-					height: "400px",
-					border: "1px solid lightgrey",
-					borderTopRightRadius: "10px",
-					boxShadow: "0 0 10px 0 rgba(0, 0, 0, 0.1)",
-				}}
-			></iframe>
-		</div>
-	);
-});
+// 	return (
+// 		<div>
+// 			<div>
+// 				<form onSubmit={handleSubmit}>
+// 					<input
+// 						type="text"
+// 						value={inputFeature}
+// 						onChange={(e) => setInputFeature(e.target.value)}
+// 						placeholder="Enter feature number"
+// 					/>
+// 					<button type="submit">Update</button>
+// 				</form>
+// 			</div>
+// 			<iframe
+// 				src={`https://neuronpedia.org/gemma-2b/6-res-jb/${featureNumber}?embed=true`}
+// 				title="Neuronpedia"
+// 				className="neuronpedia-iframe"
+// 				style={{
+// 					pointerEvents: "auto",
+// 					overflow: "auto",
+// 					width: "400px",
+// 					height: "400px",
+// 					border: "1px solid lightgrey",
+// 					borderTopRightRadius: "10px",
+// 					boxShadow: "0 0 10px 0 rgba(0, 0, 0, 0.1)",
+// 				}}
+// 			></iframe>
+// 		</div>
+// 	);
+// });
 
-const components: TLComponents = {
-	NavigationPanel: CustomNavigationPanel, // null will hide the panel instead
-};
+// const components: TLComponents = {
+// 	NavigationPanel: CustomNavigationPanel, // null will hide the panel instead
+// };
 
 //
 type CardShape = TLBaseShape<
@@ -224,17 +222,27 @@ const CustomUi = track(() => {
 							// @ts-ignore
 							shape.props.feature
 					  )
+					: RETRIEVAL_TYPES.CO_OCCURRING_EFFECTS === type
+					? await fetchCoOccurringEffects(
+							// @ts-ignore
+							shape.props.feature
+					  )
 					: await fetchTopActions(
 							// @ts-ignore
 							shape.props.feature
 					  );
+
+			if (type === RETRIEVAL_TYPES.CO_OCCURRING_EFFECTS) {
+				console.log(indices);
+				console.log(values);
+				return;
+			}
+
 			const descriptions = await fetchDescriptions(
 				indices
 					.slice(0, topK)
 					.filter((featureNumber: number) => featureNumber >= 0)
 			);
-
-			console.log(descriptions);
 
 			let shapes: TLShapeId[] = [];
 
@@ -356,6 +364,11 @@ const CustomUi = track(() => {
 						// Add your custom action here
 						await addFeaturesToGraph(RETRIEVAL_TYPES.COSINE_SIM);
 						break;
+					case "k":
+						console.log("Cmd + Shift + k pressed");
+						// Add your custom action here
+						await addFeaturesToGraph(RETRIEVAL_TYPES.CO_OCCURRING_EFFECTS);
+						break;
 				}
 			}
 		}
@@ -436,7 +449,7 @@ function App() {
 			const centerX = width / 2;
 			const centerY = height / 2;
 
-			const descriptions = await fetchDescriptions([feature.toString()]);
+			const descriptions = await fetchDescriptions([feature]);
 			const description =
 				descriptions[feature.toString()] || "No description available";
 
@@ -498,8 +511,9 @@ function App() {
 								type="text"
 								placeholder="Search by description"
 								value={searchQuery}
-								onFocus={() => {
-									fetchSearchResults(searchQuery, setSearchResults);
+								onFocus={async () => {
+									const data = await fetchSearchResults(searchQuery);
+									setSearchResults(data);
 									setIsSearchFocused(true);
 								}}
 								onBlur={() => {
