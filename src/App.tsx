@@ -355,12 +355,12 @@ const CustomUi = track(() => {
 						await addFeaturesToGraph(RETRIEVAL_TYPES.EFFECTS);
 
 						break;
-					case "E":
+					case "D":
 						console.log("Cmd + Shift + d pressed");
 						// Add your custom action here
 						await addFeaturesToGraph(RETRIEVAL_TYPES.ACTIONS);
 						break;
-					case "E":
+					case "O":
 						console.log("Cmd + Shift + o pressed");
 						// Add your custom action here
 						await addFeaturesToGraph(RETRIEVAL_TYPES.COSINE_SIM);
@@ -371,7 +371,7 @@ const CustomUi = track(() => {
 						await addFeaturesToGraph(RETRIEVAL_TYPES.COSINE_SIM);
 						break;
 					case "J":
-						console.log("Cmd + Shift + d pressed");
+						console.log("Cmd + Shift + j pressed");
 						// Add your custom action here
 						await addFeaturesToGraph(RETRIEVAL_TYPES.ACTIONS);
 						break;
