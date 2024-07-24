@@ -21,8 +21,11 @@ import {
 	createShapeId,
 	TLShapeUtilCanBindOpts,
 	ArrowBindingUtil,
+	TLShapeId,
 } from "tldraw";
 import "tldraw/tldraw.css";
+import { fetchDescriptions, fetchTopEffects } from "./utils";
+import { Effect, EFFECT_TYPES } from "./types";
 
 // Create a context for the feature number
 const FeatureContext = createContext<
@@ -33,29 +36,51 @@ const FeatureContext = createContext<
 	| undefined
 >(undefined);
 
-function CustomNavigationPanel() {
+const CustomNavigationPanel = track(() => {
 	const featureContext = useContext(FeatureContext);
 	if (!featureContext)
 		throw new Error("FeatureContext must be used within a FeatureProvider");
-	const { featureNumber } = featureContext;
+	const { featureNumber, setFeatureNumber } = featureContext;
+	const [inputFeature, setInputFeature] = useState(featureNumber.toString());
+
+	const handleSubmit = (e: React.FormEvent) => {
+		e.preventDefault();
+		const newFeature = parseInt(inputFeature);
+		if (!isNaN(newFeature)) {
+			setFeatureNumber(newFeature);
+		}
+	};
 
 	return (
-		<iframe
-			src={`https://neuronpedia.org/gemma-2b/6-res-jb/${featureNumber}?embed=true`}
-			title="Neuronpedia"
-			className="neuronpedia-iframe"
-			style={{
-				pointerEvents: "auto",
-				overflow: "auto",
-				width: "400px",
-				height: "400px",
-				border: "1px solid lightgrey",
-				borderTopRightRadius: "10px",
-				boxShadow: "0 0 10px 0 rgba(0, 0, 0, 0.1)",
-			}}
-		></iframe>
+		<div>
+			<div>
+				<form onSubmit={handleSubmit}>
+					<input
+						type="text"
+						value={inputFeature}
+						onChange={(e) => setInputFeature(e.target.value)}
+						placeholder="Enter feature number"
+					/>
+					<button type="submit">Update</button>
+				</form>
+			</div>
+			<iframe
+				src={`https://neuronpedia.org/gemma-2b/6-res-jb/${featureNumber}?embed=true`}
+				title="Neuronpedia"
+				className="neuronpedia-iframe"
+				style={{
+					pointerEvents: "auto",
+					overflow: "auto",
+					width: "400px",
+					height: "400px",
+					border: "1px solid lightgrey",
+					borderTopRightRadius: "10px",
+					boxShadow: "0 0 10px 0 rgba(0, 0, 0, 0.1)",
+				}}
+			></iframe>
+		</div>
 	);
-}
+});
 
 const components: TLComponents = {
 	NavigationPanel: CustomNavigationPanel, // null will hide the panel instead
@@ -73,7 +98,7 @@ class CardShapeUtil extends ShapeUtil<CardShape> {
 
 	getDefaultProps(): CardShape["props"] {
 		return {
-			w: 100,
+			w: 250,
 			h: 100,
 			feature: "10138",
 			description: "related to London",
@@ -107,7 +132,7 @@ class CardShapeUtil extends ShapeUtil<CardShape> {
 							<b>{shape.props.feature}</b>
 							<br />
 							<span>{shape.props.description}</span>
-							<button
+							{/* <button
 								onClick={(e) => {
 									e.stopPropagation();
 									context.setFeatureNumber((prev) => {
@@ -117,7 +142,7 @@ class CardShapeUtil extends ShapeUtil<CardShape> {
 								}}
 							>
 								hi
-							</button>
+							</button> */}
 						</HTMLContainer>
 					);
 				}}
@@ -132,8 +157,6 @@ class CardShapeUtil extends ShapeUtil<CardShape> {
 
 const customShape = [CardShapeUtil];
 
-//
-
 const CustomUi = track(() => {
 	const editor = useEditor();
 
@@ -142,7 +165,7 @@ const CustomUi = track(() => {
 			switch (e.key) {
 				case "Delete":
 				case "Backspace": {
-					editor.deleteShapes(editor.getSelectedShapeIds());
+					// editor.deleteShapes(editor.getSelectedShapeIds());
 					break;
 				}
 				case "v": {
@@ -166,6 +189,114 @@ const CustomUi = track(() => {
 		window.addEventListener("keyup", handleKeyUp);
 		return () => {
 			window.removeEventListener("keyup", handleKeyUp);
+		};
+	});
+
+	const addFeaturesToGraph = async (type: Effect) => {
+		const selectedShapes = editor?.getSelectedShapeIds();
+		if (selectedShapes.length == 1) {
+			const shape = editor?.getShape(selectedShapes[0]);
+			if (!shape) return;
+			// Make call to get the data
+
+			const topK = 10;
+
+			// TODO: Get actions instead of effects here
+			const { indices, values } = await fetchTopEffects(
+				// @ts-ignore
+				shape.props.feature
+			);
+			const descriptions = await fetchDescriptions(indices.slice(0, topK));
+
+			let shapes: TLShapeId[] = [];
+
+			indices.slice(0, topK).forEach((featureNumber: string, index: number) => {
+				const id = createShapeId();
+				const arrow_id = createShapeId();
+
+				shapes.push(id);
+
+				editor
+					?.createShapes([
+						{
+							id: id,
+							type: "card",
+							x:
+								shape.x +
+								(type === EFFECT_TYPES.EFFECTS
+									? // @ts-ignore
+									  shape.props.w + 300
+									: // @ts-ignore
+									  -300 - shape.props.w),
+							y: shape.y + index * 130,
+							props: {
+								feature: featureNumber.toString(),
+								description: descriptions[featureNumber],
+							},
+						},
+						{
+							id: arrow_id,
+							type: "arrow",
+							x: 150,
+							y: 150,
+							props: {
+								text: Number(values[index]).toFixed(2).replace(/^0\./, "."),
+							},
+						},
+					])
+					.createBindings([
+						{
+							fromId: arrow_id,
+							toId: type === EFFECT_TYPES.EFFECTS ? selectedShapes[0] : id,
+							type: "arrow",
+							props: {
+								terminal: "start",
+								normalizedAnchor: { x: 1, y: 0.5 },
+								isExact: false,
+								isPrecise: true,
+							},
+						},
+						{
+							fromId: arrow_id,
+							toId: type === EFFECT_TYPES.EFFECTS ? id : selectedShapes[0],
+							type: "arrow",
+							props: {
+								terminal: "end",
+								normalizedAnchor: { x: 0, y: 0.5 },
+								isExact: false,
+								isPrecise: true,
+							},
+						},
+					]);
+			});
+
+			editor.setSelectedShapes(shapes);
+		}
+	};
+
+	useEffect(() => {
+		async function handleKeyDown(e: KeyboardEvent) {
+			// Check for Cmd + Shift + key combination
+			if (e.metaKey && e.shiftKey) {
+				switch (e.key) {
+					case "e":
+						console.log("Cmd + Shift + e pressed");
+						// Add your custom action here
+						await addFeaturesToGraph(EFFECT_TYPES.EFFECTS);
+
+						break;
+					case "d":
+						console.log("Cmd + Shift + d pressed");
+						// Add your custom action here
+						await addFeaturesToGraph(EFFECT_TYPES.ACTIONS);
+						break;
+				}
+			}
+		}
+
+		window.addEventListener("keydown", handleKeyDown);
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown);
 		};
 	});
 
@@ -193,6 +324,7 @@ const CustomUi = track(() => {
 				>
 					Eraser
 				</button>
+				<input type="text" />
 			</div>
 		</div>
 	);
@@ -203,27 +335,6 @@ function App() {
 
 	const [editor, setEditor] = useState<Editor | null>(null);
 
-	// const handleEvent = useCallback(
-	// 	(data: TLEventInfo) => {
-	// 		console.log(data.name);
-	// 		if (data.name === "pointer_up") {
-	// 			console.log(editor?.getSelectedShapeIds());
-	// 		}
-	// 		// if (data.name === "pointer_up" && editor) {
-	// 		// 	const selectedShapes = editor.getSelectedShapes();
-	// 		// 	if (selectedShapes.length > 0) {
-	// 		// 		console.log(selectedShapes[0]);
-	// 		// 	}
-	// 		// }
-	// 	},
-	// 	[editor]
-	// );
-
-	function handleEvent(name: string, data: any) {
-		// do something with the event
-		console.log(name);
-	}
-
 	useEffect(() => {
 		if (editor) {
 			const ids = {
@@ -233,95 +344,18 @@ function App() {
 				arrow1: createShapeId("arrow1"),
 				arrow2: createShapeId("arrow2"),
 			};
-			editor
-				.createShapes([
-					{
-						id: ids.box1,
-						type: "geo",
-						x: 100,
-						y: 100,
-						props: { w: 100, h: 100 },
+			editor.createShapes([
+				{
+					id: ids.box1,
+					type: "card",
+					x: 100,
+					y: 100,
+					props: {
+						feature: 10138,
+						description: "locations, particularly related to London",
 					},
-					{
-						id: ids.box2,
-						type: "geo",
-						x: 300,
-						y: 300,
-						props: { w: 100, h: 100 },
-					},
-					{
-						id: ids.box3,
-						type: "geo",
-						x: 300,
-						y: 100,
-						props: { w: 100, h: 100 },
-					},
-					{
-						id: ids.arrow1,
-						type: "arrow",
-						x: 150,
-						y: 150,
-						props: {
-							text: "2",
-						},
-					},
-					{
-						id: ids.arrow2,
-						type: "arrow",
-						x: 150,
-						y: 150,
-						props: {
-							text: "1",
-						},
-					},
-				])
-				.createBindings([
-					{
-						fromId: ids.arrow1,
-						toId: ids.box1,
-						type: "arrow",
-						props: {
-							terminal: "start",
-							normalizedAnchor: { x: 0.5, y: 0.5 },
-							isExact: false,
-							isPrecise: false,
-						},
-					},
-					{
-						fromId: ids.arrow1,
-						toId: ids.box2,
-						type: "arrow",
-						props: {
-							terminal: "end",
-							normalizedAnchor: { x: 0.5, y: 0.5 },
-							isExact: false,
-							isPrecise: false,
-						},
-					},
-					{
-						fromId: ids.arrow2,
-						toId: ids.box1,
-						type: "arrow",
-						props: {
-							terminal: "start",
-							normalizedAnchor: { x: 0.5, y: 0.5 },
-							isExact: false,
-							isPrecise: false,
-						},
-					},
-					{
-						fromId: ids.arrow2,
-						toId: ids.box3,
-						type: "arrow",
-						props: {
-							terminal: "end",
-							normalizedAnchor: { x: 0.5, y: 0.5 },
-							isExact: false,
-							isPrecise: false,
-						},
-					},
-				]);
-			// console.log(editor.getCurrentPageShapesSorted());
+				},
+			]);
 		}
 	}, [editor]);
 
@@ -331,11 +365,8 @@ function App() {
 				<Tldraw
 					components={components}
 					shapeUtils={customShape}
-					onUiEvent={handleEvent}
 					onMount={(editor: Editor) => {
 						setEditor(editor);
-
-						// editor.on("event", (event: TLEventInfo) => handleEvent(event));
 					}}
 				>
 					<CustomUi />
