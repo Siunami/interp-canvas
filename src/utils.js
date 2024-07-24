@@ -4,10 +4,10 @@ const getBaseUrl = () => {
 		: "https://steering-explorer-server.vercel.app";
 };
 
-export const fetchData = async (index) => {
+export const fetchCosineSim = async (index) => {
 	console.log("fetching: " + index);
 	try {
-		const response = await fetch(`${getBaseUrl()}/get_data?index=${index}`);
+		const response = await fetch(`${getBaseUrl()}/get_cos_sim?index=${index}`);
 		if (!response.ok) {
 			throw new Error("Network response was not ok");
 		}

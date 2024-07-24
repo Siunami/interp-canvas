@@ -24,8 +24,14 @@ import {
 	TLShapeId,
 } from "tldraw";
 import "tldraw/tldraw.css";
-import { fetchDescriptions, fetchTopActions, fetchTopEffects } from "./utils";
-import { Effect, EFFECT_TYPES } from "./types";
+import {
+	fetchCosineSim,
+	fetchDescriptions,
+	fetchSearchResults,
+	fetchTopActions,
+	fetchTopEffects,
+} from "./utils";
+import { Retrieval, RETRIEVAL_TYPES } from "./types";
 
 // Create a context for the feature number
 const FeatureContext = createContext<
@@ -129,8 +135,8 @@ class CardShapeUtil extends ShapeUtil<CardShape> {
 					}
 					return (
 						<HTMLContainer className="card-container">
-							<b>{shape.props.feature}</b>
-							<br />
+							<h2 style={{ margin: 0 }}>{shape.props.feature}</h2>
+							{/* <br /> */}
 							<span>{shape.props.description}</span>
 							{/* <button
 								onClick={(e) => {
@@ -151,7 +157,13 @@ class CardShapeUtil extends ShapeUtil<CardShape> {
 	}
 
 	indicator(shape: CardShape) {
-		return <rect width={shape.props.w} height={shape.props.h} />;
+		return (
+			<rect
+				style={{ borderRadius: "3px" }}
+				width={shape.props.w}
+				height={shape.props.h}
+			/>
+		);
 	}
 }
 
@@ -192,7 +204,7 @@ const CustomUi = track(() => {
 		};
 	});
 
-	const addFeaturesToGraph = async (type: Effect) => {
+	const addFeaturesToGraph = async (type: Retrieval) => {
 		const selectedShapes = editor?.getSelectedShapeIds();
 		if (selectedShapes.length == 1) {
 			const shape = editor?.getShape(selectedShapes[0]);
@@ -201,11 +213,14 @@ const CustomUi = track(() => {
 
 			const topK = 10;
 
-			// TODO: Get actions instead of effects here
-
 			const { indices, values } =
-				EFFECT_TYPES.EFFECTS === type
+				RETRIEVAL_TYPES.EFFECTS === type
 					? await fetchTopEffects(
+							// @ts-ignore
+							shape.props.feature
+					  )
+					: RETRIEVAL_TYPES.COSINE_SIM === type
+					? await fetchCosineSim(
 							// @ts-ignore
 							shape.props.feature
 					  )
@@ -213,69 +228,104 @@ const CustomUi = track(() => {
 							// @ts-ignore
 							shape.props.feature
 					  );
-			const descriptions = await fetchDescriptions(indices.slice(0, topK));
+			const descriptions = await fetchDescriptions(
+				indices
+					.slice(0, topK)
+					.filter((featureNumber: number) => featureNumber >= 0)
+			);
 
 			let shapes: TLShapeId[] = [];
 
-			indices.slice(0, topK).forEach((featureNumber: string, index: number) => {
-				const id = createShapeId();
-				const arrow_id = createShapeId();
+			if (type === RETRIEVAL_TYPES.COSINE_SIM) {
+				editor?.createShapes([
+					{
+						id: createShapeId(),
+						type: "text",
+						x: shape.x,
+						y: shape.y + 130, // Position the text below the card
+						props: {
+							// @ts-ignore
+							text: `Cos Sim w/ ${shape.props.feature}`,
+						},
+					},
+				]);
+			}
 
-				shapes.push(id);
+			indices
+				.slice(0, topK)
+				.filter((featureNumber: number) => featureNumber >= 0)
+				.forEach((featureNumber: string, index: number) => {
+					const id = createShapeId();
+					const arrow_id = createShapeId();
 
-				editor
-					?.createShapes([
+					shapes.push(id);
+
+					let newShapes = [
 						{
 							id: id,
 							type: "card",
 							x:
 								shape.x +
-								(type === EFFECT_TYPES.EFFECTS
+								(type === RETRIEVAL_TYPES.EFFECTS
 									? // @ts-ignore
 									  shape.props.w + 300
+									: type === RETRIEVAL_TYPES.COSINE_SIM
+									? // @ts-ignore
+									  0
 									: // @ts-ignore
 									  -300 - shape.props.w),
-							y: shape.y + index * 130,
+							y:
+								(type === RETRIEVAL_TYPES.COSINE_SIM ? 180 : 0) +
+								shape.y +
+								index * 130,
 							props: {
 								feature: featureNumber.toString(),
 								description: descriptions[featureNumber],
 							},
 						},
-						{
+					];
+
+					if (type !== RETRIEVAL_TYPES.COSINE_SIM) {
+						newShapes.push({
 							id: arrow_id,
 							type: "arrow",
 							x: 150,
 							y: 150,
 							props: {
+								// @ts-ignore
 								text: Number(values[index]).toFixed(2).replace(/^0\./, "."),
 							},
-						},
-					])
-					.createBindings([
-						{
-							fromId: arrow_id,
-							toId: type === EFFECT_TYPES.EFFECTS ? selectedShapes[0] : id,
-							type: "arrow",
-							props: {
-								terminal: "start",
-								normalizedAnchor: { x: 1, y: 0.5 },
-								isExact: false,
-								isPrecise: true,
+						});
+					}
+
+					editor?.createShapes(newShapes);
+					if (RETRIEVAL_TYPES.COSINE_SIM !== type) {
+						editor.createBindings([
+							{
+								fromId: arrow_id,
+								toId: type === RETRIEVAL_TYPES.EFFECTS ? selectedShapes[0] : id,
+								type: "arrow",
+								props: {
+									terminal: "start",
+									normalizedAnchor: { x: 1, y: 0.5 },
+									isExact: false,
+									isPrecise: true,
+								},
 							},
-						},
-						{
-							fromId: arrow_id,
-							toId: type === EFFECT_TYPES.EFFECTS ? id : selectedShapes[0],
-							type: "arrow",
-							props: {
-								terminal: "end",
-								normalizedAnchor: { x: 0, y: 0.5 },
-								isExact: false,
-								isPrecise: true,
+							{
+								fromId: arrow_id,
+								toId: type === RETRIEVAL_TYPES.EFFECTS ? id : selectedShapes[0],
+								type: "arrow",
+								props: {
+									terminal: "end",
+									normalizedAnchor: { x: 0, y: 0.5 },
+									isExact: false,
+									isPrecise: true,
+								},
 							},
-						},
-					]);
-			});
+						]);
+					}
+				});
 
 			editor.setSelectedShapes(shapes);
 		}
@@ -289,13 +339,18 @@ const CustomUi = track(() => {
 					case "e":
 						console.log("Cmd + Shift + e pressed");
 						// Add your custom action here
-						await addFeaturesToGraph(EFFECT_TYPES.EFFECTS);
+						await addFeaturesToGraph(RETRIEVAL_TYPES.EFFECTS);
 
 						break;
 					case "d":
 						console.log("Cmd + Shift + d pressed");
 						// Add your custom action here
-						await addFeaturesToGraph(EFFECT_TYPES.ACTIONS);
+						await addFeaturesToGraph(RETRIEVAL_TYPES.ACTIONS);
+						break;
+					case "o":
+						console.log("Cmd + Shift + o pressed");
+						// Add your custom action here
+						await addFeaturesToGraph(RETRIEVAL_TYPES.COSINE_SIM);
 						break;
 				}
 			}
@@ -342,35 +397,88 @@ function App() {
 
 	const [editor, setEditor] = useState<Editor | null>(null);
 
+	const [inputFeature, setInputFeature] = useState(featureNumber.toString());
+
+	// Search query
+	const [searchQuery, setSearchQuery] = useState("");
+	const [searchResults, setSearchResults] = useState([]);
+	const [isSearchFocused, setIsSearchFocused] = useState(false);
+
 	useEffect(() => {
+		const delayDebounceFn = setTimeout(async () => {
+			if (searchQuery.trim().length < 2) {
+				setSearchResults([]);
+				return;
+			}
+			let results = await fetchSearchResults(searchQuery);
+			setSearchResults(results.slice(0, 40));
+		}, 300); // Debounce delay
+
+		return () => clearTimeout(delayDebounceFn);
+	}, [searchQuery]);
+
+	const handleSubmit = (e: React.FormEvent) => {
+		e.preventDefault();
+		const newFeature = parseInt(inputFeature);
+		if (!isNaN(newFeature)) {
+			setFeatureNumber(newFeature);
+		}
+	};
+
+	const createCard = async (feature: number) => {
 		if (editor) {
-			const ids = {
-				box1: createShapeId("box1"),
-				box2: createShapeId("box2"),
-				box3: createShapeId("box3"),
-				arrow1: createShapeId("arrow1"),
-				arrow2: createShapeId("arrow2"),
-			};
+			const { width, height } = editor.getViewportPageBounds();
+			const centerX = width / 2;
+			const centerY = height / 2;
+
+			const descriptions = await fetchDescriptions([feature.toString()]);
+			const description =
+				descriptions[feature.toString()] || "No description available";
+
 			editor.createShapes([
 				{
-					id: ids.box1,
+					id: createShapeId(),
 					type: "card",
-					x: 100,
-					y: 100,
+					x: centerX,
+					y: centerY,
 					props: {
-						feature: 10138,
-						description: "locations, particularly related to London",
+						feature: feature,
+						description,
 					},
 				},
 			]);
 		}
+	};
+
+	useEffect(() => {
+		// if (editor) {
+		// 	const ids = {
+		// 		box1: createShapeId("box1"),
+		// 		box2: createShapeId("box2"),
+		// 		box3: createShapeId("box3"),
+		// 		arrow1: createShapeId("arrow1"),
+		// 		arrow2: createShapeId("arrow2"),
+		// 	};
+		// 	editor.createShapes([
+		// 		{
+		// 			id: ids.box1,
+		// 			type: "card",
+		// 			x: 500,
+		// 			y: 250,
+		// 			props: {
+		// 				feature: 10138,
+		// 				description: "locations, particularly related to London",
+		// 			},
+		// 		},
+		// 	]);
+		// }
 	}, [editor]);
 
 	return (
 		<FeatureContext.Provider value={{ featureNumber, setFeatureNumber }}>
 			<div style={{ position: "fixed", inset: 0 }}>
 				<Tldraw
-					components={components}
+					// components={components}
 					shapeUtils={customShape}
 					onMount={(editor: Editor) => {
 						setEditor(editor);
@@ -379,6 +487,107 @@ function App() {
 					<CustomUi />
 				</Tldraw>
 			</div>
+			<div
+				style={{
+					position: "fixed",
+					top: "440px",
+					left: 0,
+				}}
+			>
+				<div className="feature-controls">
+					<div className="form-container">
+						<form onSubmit={handleSubmit} className="input-container">
+							<input
+								type="number"
+								value={inputFeature}
+								onChange={(e) => setInputFeature(e.target.value)}
+								placeholder="Enter feature number"
+							/>
+							<button className="feature-button" type="submit">
+								Update
+							</button>
+						</form>
+
+						<div className="search-container">
+							<input
+								type="text"
+								placeholder="Search by description"
+								value={searchQuery}
+								onFocus={() => {
+									fetchSearchResults(searchQuery, setSearchResults);
+									setIsSearchFocused(true);
+								}}
+								onBlur={() => {
+									setTimeout(() => setIsSearchFocused(false), 100);
+								}}
+								onChange={(e) => setSearchQuery(e.target.value)}
+							/>
+							{isSearchFocused && searchResults.length > 0 && (
+								<div className="search-results">
+									{searchResults.map((result, index) => (
+										<div
+											key={index}
+											className="search-result-item"
+											onMouseDown={() => {
+												setFeatureNumber(result[1]);
+												setInputFeature(result[1]);
+												setSearchResults([]);
+											}}
+										>
+											<span className="result-number">{result[1]}</span>
+											<span className="result-description">{result[0]}</span>
+										</div>
+									))}
+								</div>
+							)}
+						</div>
+					</div>
+				</div>
+			</div>
+			<iframe
+				src={`https://neuronpedia.org/gemma-2b/6-res-jb/${featureNumber}?embed=true`}
+				title="Neuronpedia"
+				className="neuronpedia-iframe"
+				style={{
+					pointerEvents: "auto",
+					overflow: "auto",
+					width: "400px",
+					height: "400px",
+					border: "1px solid lightgrey",
+					borderTopRightRadius: "10px",
+					boxShadow: "0 0 10px 0 rgba(0, 0, 0, 0.1)",
+					position: "fixed",
+					top: 40,
+					left: 0,
+				}}
+			></iframe>
+			<button
+				style={{
+					position: "fixed",
+					top: "40px",
+					left: "400px",
+					height: "400px",
+					width: "20px",
+				}}
+				className="feature-button"
+				onClick={() => createCard(featureNumber)}
+			>
+				<svg
+					width="16"
+					height="16"
+					viewBox="0 0 24 24"
+					fill="none"
+					xmlns="http://www.w3.org/2000/svg"
+				>
+					<path
+						d="M5 12H19M19 12L12 5M19 12L12 19"
+						stroke="currentColor"
+						strokeWidth="2"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+					/>
+				</svg>
+			</button>
 		</FeatureContext.Provider>
 	);
 }

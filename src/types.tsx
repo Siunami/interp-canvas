@@ -1,6 +1,7 @@
-export const EFFECT_TYPES = {
+export const RETRIEVAL_TYPES = {
 	EFFECTS: "effects",
 	ACTIONS: "actions",
+	COSINE_SIM: "cosine_sim",
 } as const;
 
-export type Effect = (typeof EFFECT_TYPES)[keyof typeof EFFECT_TYPES];
+export type Retrieval = (typeof RETRIEVAL_TYPES)[keyof typeof RETRIEVAL_TYPES];

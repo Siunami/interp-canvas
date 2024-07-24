@@ -1,6 +1,8 @@
 .card-container {
 	border: 1px solid black;
   padding: 5px;
+  background-color: white;
+  border-radius: 3px;
 }
 
 
@@ -34,4 +36,79 @@
 .custom-button[data-isactive='true'] {
 	background-color: black;
 	color: white;
+}
+
+/* New styles for form elements and search results */
+.feature-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.feature-button {
+  background-color: #f0f0f0;
+  color: black;
+  cursor: pointer;
+  /* transition: background-color 0.2s; */
+}
+
+.form-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.input-container {
+  display: flex;
+  flex-direction: row;
+  flex-grow: 1;
+}
+
+.input-container input {
+  flex-grow: 1;
+}
+
+.search-container {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+input[type="number"],
+input[type="text"] {
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  /* border-radius: 4px; */
+  background-color: #f0f0f0;
+  color:black;
+  font-size: 14px;
+  width: calc(400px - 24px);
+}
+
+
+.search-results {
+  max-height: 200px;
+  max-width: 400px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  color:black;
+}
+
+.search-result-item {
+  padding: 5px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.search-result-item:hover {
+  background-color: #f0f0f0;
+}
+
+.result-number {
+  font-weight: bold;
+  margin-right: 10px;
+}
+
+.result-description {
+  font-size: 14px;
 }
