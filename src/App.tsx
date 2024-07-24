@@ -24,7 +24,7 @@ import {
 	TLShapeId,
 } from "tldraw";
 import "tldraw/tldraw.css";
-import { fetchDescriptions, fetchTopEffects } from "./utils";
+import { fetchDescriptions, fetchTopActions, fetchTopEffects } from "./utils";
 import { Effect, EFFECT_TYPES } from "./types";
 
 // Create a context for the feature number
@@ -202,10 +202,17 @@ const CustomUi = track(() => {
 			const topK = 10;
 
 			// TODO: Get actions instead of effects here
-			const { indices, values } = await fetchTopEffects(
-				// @ts-ignore
-				shape.props.feature
-			);
+
+			const { indices, values } =
+				EFFECT_TYPES.EFFECTS === type
+					? await fetchTopEffects(
+							// @ts-ignore
+							shape.props.feature
+					  )
+					: await fetchTopActions(
+							// @ts-ignore
+							shape.props.feature
+					  );
 			const descriptions = await fetchDescriptions(indices.slice(0, topK));
 
 			let shapes: TLShapeId[] = [];

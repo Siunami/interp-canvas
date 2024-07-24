@@ -71,3 +71,20 @@ export const fetchTopEffects = async (feature) => {
 		console.error("There was a problem fetching top effects:", error);
 	}
 };
+
+export const fetchTopActions = async (feature) => {
+	console.log("fetching top actions for feature: " + feature);
+	try {
+		const response = await fetch(
+			`${getBaseUrl()}/get_top_actions?feature=${feature}`
+		);
+		if (!response.ok) {
+			throw new Error("Network response was not ok");
+			return;
+		}
+		const rawData = await response.json();
+		return rawData;
+	} catch (error) {
+		console.error("There was a problem fetching top actions:", error);
+	}
+};
