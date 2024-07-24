@@ -345,36 +345,37 @@ const CustomUi = track(() => {
 
 	useEffect(() => {
 		async function handleKeyDown(e: KeyboardEvent) {
+			console.log(e);
 			// Check for Cmd + Shift + key combination
-			if (e.metaKey && e.shiftKey) {
+			if (e.shiftKey) {
 				switch (e.key) {
-					case "e":
+					case "E":
 						console.log("Cmd + Shift + e pressed");
 						// Add your custom action here
 						await addFeaturesToGraph(RETRIEVAL_TYPES.EFFECTS);
 
 						break;
-					case "d":
+					case "E":
 						console.log("Cmd + Shift + d pressed");
 						// Add your custom action here
 						await addFeaturesToGraph(RETRIEVAL_TYPES.ACTIONS);
 						break;
-					case "o":
+					case "E":
 						console.log("Cmd + Shift + o pressed");
 						// Add your custom action here
 						await addFeaturesToGraph(RETRIEVAL_TYPES.COSINE_SIM);
 						break;
-					case "i":
+					case "I":
 						console.log("Cmd + Shift + i pressed");
 						// Add your custom action here
 						await addFeaturesToGraph(RETRIEVAL_TYPES.COSINE_SIM);
 						break;
-					case "j":
+					case "J":
 						console.log("Cmd + Shift + d pressed");
 						// Add your custom action here
 						await addFeaturesToGraph(RETRIEVAL_TYPES.ACTIONS);
 						break;
-					case "k":
+					case "K":
 						console.log("Cmd + Shift + k pressed");
 						// Add your custom action here
 						await addFeaturesToGraph(RETRIEVAL_TYPES.CO_OCCURRING_EFFECTS);
