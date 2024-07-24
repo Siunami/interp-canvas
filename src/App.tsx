@@ -172,37 +172,37 @@ const customShape = [CardShapeUtil];
 const CustomUi = track(() => {
 	const editor = useEditor();
 
-	useEffect(() => {
-		const handleKeyUp = (e: KeyboardEvent) => {
-			switch (e.key) {
-				case "Delete":
-				case "Backspace": {
-					// editor.deleteShapes(editor.getSelectedShapeIds());
-					break;
-				}
-				case "v": {
-					editor.setCurrentTool("select");
-					break;
-				}
-				case "e": {
-					editor.setCurrentTool("eraser");
-					break;
-				}
-				case "x":
-				case "p":
-				case "b":
-				case "d": {
-					editor.setCurrentTool("draw");
-					break;
-				}
-			}
-		};
+	// useEffect(() => {
+	// 	const handleKeyUp = (e: KeyboardEvent) => {
+	// 		switch (e.key) {
+	// 			case "Delete":
+	// 			case "Backspace": {
+	// 				// editor.deleteShapes(editor.getSelectedShapeIds());
+	// 				break;
+	// 			}
+	// 			case "v": {
+	// 				editor.setCurrentTool("select");
+	// 				break;
+	// 			}
+	// 			case "e": {
+	// 				editor.setCurrentTool("eraser");
+	// 				break;
+	// 			}
+	// 			case "x":
+	// 			case "p":
+	// 			case "b":
+	// 			case "d": {
+	// 				editor.setCurrentTool("draw");
+	// 				break;
+	// 			}
+	// 		}
+	// 	};
 
-		window.addEventListener("keyup", handleKeyUp);
-		return () => {
-			window.removeEventListener("keyup", handleKeyUp);
-		};
-	});
+	// 	window.addEventListener("keyup", handleKeyUp);
+	// 	return () => {
+	// 		window.removeEventListener("keyup", handleKeyUp);
+	// 	};
+	// });
 
 	const addFeaturesToGraph = async (type: Retrieval) => {
 		const selectedShapes = editor?.getSelectedShapeIds();
@@ -233,6 +233,8 @@ const CustomUi = track(() => {
 					.slice(0, topK)
 					.filter((featureNumber: number) => featureNumber >= 0)
 			);
+
+			console.log(descriptions);
 
 			let shapes: TLShapeId[] = [];
 
@@ -280,7 +282,9 @@ const CustomUi = track(() => {
 								index * 130,
 							props: {
 								feature: featureNumber.toString(),
-								description: descriptions[featureNumber],
+								description: descriptions[featureNumber]
+									? descriptions[featureNumber]
+									: "",
 							},
 						},
 					];
@@ -364,7 +368,7 @@ const CustomUi = track(() => {
 
 	return (
 		<div className="custom-layout">
-			<div className="custom-toolbar">
+			{/* <div className="custom-toolbar">
 				<button
 					className="custom-button"
 					data-isactive={editor.getCurrentToolId() === "select"}
@@ -387,7 +391,7 @@ const CustomUi = track(() => {
 					Eraser
 				</button>
 				<input type="text" />
-			</div>
+			</div> */}
 		</div>
 	);
 });
@@ -422,6 +426,7 @@ function App() {
 		const newFeature = parseInt(inputFeature);
 		if (!isNaN(newFeature)) {
 			setFeatureNumber(newFeature);
+			setSearchQuery("");
 		}
 	};
 
@@ -450,30 +455,6 @@ function App() {
 		}
 	};
 
-	useEffect(() => {
-		// if (editor) {
-		// 	const ids = {
-		// 		box1: createShapeId("box1"),
-		// 		box2: createShapeId("box2"),
-		// 		box3: createShapeId("box3"),
-		// 		arrow1: createShapeId("arrow1"),
-		// 		arrow2: createShapeId("arrow2"),
-		// 	};
-		// 	editor.createShapes([
-		// 		{
-		// 			id: ids.box1,
-		// 			type: "card",
-		// 			x: 500,
-		// 			y: 250,
-		// 			props: {
-		// 				feature: 10138,
-		// 				description: "locations, particularly related to London",
-		// 			},
-		// 		},
-		// 	]);
-		// }
-	}, [editor]);
-
 	return (
 		<FeatureContext.Provider value={{ featureNumber, setFeatureNumber }}>
 			<div style={{ position: "fixed", inset: 0 }}>
@@ -491,25 +472,29 @@ function App() {
 				style={{
 					position: "fixed",
 					top: "440px",
-					left: 0,
+					left: 4,
 				}}
 			>
 				<div className="feature-controls">
 					<div className="form-container">
 						<form onSubmit={handleSubmit} className="input-container">
 							<input
+								className="feature-input"
 								type="number"
 								value={inputFeature}
-								onChange={(e) => setInputFeature(e.target.value)}
+								onChange={(e) => {
+									setInputFeature(e.target.value);
+								}}
 								placeholder="Enter feature number"
 							/>
-							<button className="feature-button" type="submit">
+							<button className="feature-submit" type="submit">
 								Update
 							</button>
 						</form>
 
 						<div className="search-container">
 							<input
+								className="search-input"
 								type="text"
 								placeholder="Search by description"
 								value={searchQuery}
@@ -557,19 +542,12 @@ function App() {
 					borderTopRightRadius: "10px",
 					boxShadow: "0 0 10px 0 rgba(0, 0, 0, 0.1)",
 					position: "fixed",
-					top: 40,
-					left: 0,
+					top: 44,
+					left: 4,
 				}}
 			></iframe>
 			<button
-				style={{
-					position: "fixed",
-					top: "40px",
-					left: "400px",
-					height: "400px",
-					width: "20px",
-				}}
-				className="feature-button"
+				className="insert-feature"
 				onClick={() => createCard(featureNumber)}
 			>
 				<svg
