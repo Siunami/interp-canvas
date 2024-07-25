@@ -1,3 +1,5 @@
+export const MIN_CARD_HEIGHT = 100;
+
 const getBaseUrl = () => {
 	return process.env.NODE_ENV === "development"
 		? "http://localhost:5000"

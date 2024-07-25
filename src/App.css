@@ -3,8 +3,43 @@
   padding: 5px;
   background-color: white;
   border-radius: 3px;
+  pointer-events: all;
 }
 
+.card-row {
+  display: flex;
+  flex-direction: row;
+  position: relative;
+}
+
+.card-preview {
+  width: fit-content;
+  height: fit-content;
+  background: none;
+  padding: 5px;
+  margin-left: 3px;
+  font-size: 1em;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background-color: transparent;
+  transition: border 0.2s, background-color 0.2s;
+  cursor: pointer;
+}
+
+.card-preview:hover {
+  border: 1px solid lightgray;
+  background-color: lightgray;
+}
+
+.card-stats {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  font-size: 0.8em;
+  color: gray;
+}
+
+/*  */
 
 .custom-layout {
 	position: absolute;
@@ -143,6 +178,7 @@
 .search-result-item {
   padding: 5px;
   cursor: pointer;
+  background-color: #f0f0f0;
 }
 
 .search-result-item:hover {

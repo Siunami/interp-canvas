@@ -1,7 +1,7 @@
 export const RETRIEVAL_TYPES = {
-	EFFECTS: "effects",
-	ACTIONS: "actions",
-	COSINE_SIM: "cosine_sim",
+	EFFECTS: "effect",
+	ACTIONS: "action",
+	COSINE_SIM: "cos-sim",
 	CO_OCCURRING_EFFECTS: "co_occurring_effects",
 } as const;
 

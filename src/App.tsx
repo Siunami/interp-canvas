@@ -28,6 +28,7 @@ import {
 	fetchTopActions,
 	fetchTopEffects,
 	fetchCoOccurringEffects,
+	MIN_CARD_HEIGHT,
 } from "./utils";
 import { Retrieval, RETRIEVAL_TYPES } from "./types";
 
@@ -93,19 +94,32 @@ const FeatureContext = createContext<
 //
 type CardShape = TLBaseShape<
 	"card",
-	{ w: number; h: number; feature: string; description: string }
+	{
+		w: number;
+		h: number;
+		feature: string;
+		description: string;
+		fromFeature: string;
+		score: number | null;
+		type: string;
+	}
 >;
 
 class CardShapeUtil extends ShapeUtil<CardShape> {
 	// @ts-ignore
 	static override type = "card" as const;
+	private element: HTMLElement | null = null;
+	private measurementDone: boolean = false;
 
 	getDefaultProps(): CardShape["props"] {
 		return {
 			w: 250,
-			h: 100,
+			h: 120,
 			feature: "10138",
 			description: "related to London",
+			fromFeature: "",
+			score: null,
+			type: "",
 		};
 	}
 
@@ -132,21 +146,80 @@ class CardShapeUtil extends ShapeUtil<CardShape> {
 						);
 					}
 					return (
-						<HTMLContainer className="card-container">
-							<h2 style={{ margin: 0 }}>{shape.props.feature}</h2>
-							{/* <br /> */}
-							<span>{shape.props.description}</span>
-							{/* <button
-								onClick={(e) => {
-									e.stopPropagation();
-									context.setFeatureNumber((prev) => {
-										if (prev !== 1) return 1;
-										return prev;
-									});
-								}}
+						<HTMLContainer
+							className="card-container"
+							style={{
+								pointerEvents: "all",
+							}}
+						>
+							<div
+							// ref={(el) => {
+							// 	this.element = el;
+							// 	setTimeout(() => {
+							// 		console.log("Feature: " + shape.props.feature);
+							// 		console.log(el);
+							// 		if (el && !this.measurementDone) {
+							// 			const height = el.getBoundingClientRect().height;
+							// 			// + 10 considers padding of parent element
+							// 			const currentHeight = height + 10;
+							// 			console.log(el);
+							// 			console.log(el.getBoundingClientRect());
+							// 			console.log("current height: " + currentHeight);
+							// 			console.log("shape height: " + shape.props.h);
+							// 			this.editor?.updateShape({
+							// 				id: shape.id,
+							// 				type: "card",
+							// 				props: {
+							// 					...shape.props,
+							// 					h: Math.max(currentHeight, MIN_CARD_HEIGHT),
+							// 				},
+							// 			});
+							// 			this.measurementDone = true;
+							// 		}
+							// 	}, 200);
+							// }}
 							>
-								hi
-							</button> */}
+								<div className="card-row">
+									<h2 style={{ margin: 0 }}>{shape.props.feature}</h2>
+									<div
+										className="card-preview"
+										onClick={(ev) => {
+											context.setFeatureNumber(Number(shape.props.feature));
+										}}
+										onPointerDown={(e) => e.stopPropagation()}
+										onTouchStart={(e) => e.stopPropagation()}
+										onTouchEnd={(e) => e.stopPropagation()}
+									>
+										🔍
+									</div>
+									<div className="card-stats">
+										<div>
+											{shape.props.fromFeature !== ""
+												? `${Number(shape.props.score)
+														.toFixed(2)
+														.replace(/^0\./, ".")} ${shape.props.type} for ${
+														shape.props.fromFeature
+												  }`
+												: ""}
+										</div>
+										{/* <div>
+											<div
+												style={{
+													marginLeft: "auto",
+												}}
+											>
+												{Number(shape.props.score)
+													? Number(shape.props.score)
+															.toFixed(2)
+															.replace(/^0\./, ".")
+													: ""}{" "}
+												{shape.props.type.slice(0, 3).toUpperCase()}
+											</div>
+										</div> */}
+									</div>
+								</div>
+								<span>{shape.props.description}</span>
+							</div>
 						</HTMLContainer>
 					);
 				}}
@@ -169,38 +242,6 @@ const customShape = [CardShapeUtil];
 
 const CustomUi = track(() => {
 	const editor = useEditor();
-
-	// useEffect(() => {
-	// 	const handleKeyUp = (e: KeyboardEvent) => {
-	// 		switch (e.key) {
-	// 			case "Delete":
-	// 			case "Backspace": {
-	// 				// editor.deleteShapes(editor.getSelectedShapeIds());
-	// 				break;
-	// 			}
-	// 			case "v": {
-	// 				editor.setCurrentTool("select");
-	// 				break;
-	// 			}
-	// 			case "e": {
-	// 				editor.setCurrentTool("eraser");
-	// 				break;
-	// 			}
-	// 			case "x":
-	// 			case "p":
-	// 			case "b":
-	// 			case "d": {
-	// 				editor.setCurrentTool("draw");
-	// 				break;
-	// 			}
-	// 		}
-	// 	};
-
-	// 	window.addEventListener("keyup", handleKeyUp);
-	// 	return () => {
-	// 		window.removeEventListener("keyup", handleKeyUp);
-	// 	};
-	// });
 
 	const addFeaturesToGraph = async (type: Retrieval) => {
 		const selectedShapes = editor?.getSelectedShapeIds();
@@ -261,83 +302,97 @@ const CustomUi = track(() => {
 				]);
 			}
 
-			indices
+			const features = indices
 				.slice(0, topK)
-				.filter((featureNumber: number) => featureNumber >= 0)
-				.forEach((featureNumber: string, index: number) => {
-					const id = createShapeId();
-					const arrow_id = createShapeId();
+				.filter((featureNumber: number) => featureNumber >= 0);
 
-					shapes.push(id);
+			// Calculate the total height of all new cards
+			const totalHeight = features.length * 130;
+			// Calculate the starting y position to center the column
+			const startY =
+				type === RETRIEVAL_TYPES.COSINE_SIM
+					? shape.y + 180
+					: shape.y - totalHeight / 2 + 65;
 
-					let newShapes = [
+			features.forEach((featureNumber: string, index: number) => {
+				const id = createShapeId();
+				const arrow_id = createShapeId();
+
+				shapes.push(id);
+
+				let newShapes = [
+					{
+						id: id,
+						type: "card",
+						x:
+							shape.x +
+							(type === RETRIEVAL_TYPES.EFFECTS
+								? // @ts-ignore
+								  shape.props.w + 300
+								: type === RETRIEVAL_TYPES.COSINE_SIM
+								? // @ts-ignore
+								  0
+								: // @ts-ignore
+								  -300 - shape.props.w),
+						y: startY + index * 130,
+						props: {
+							feature: featureNumber.toString(),
+							description: descriptions[featureNumber]
+								? descriptions[featureNumber]
+								: "",
+							// @ts-ignore
+							fromFeature: shape.props.feature,
+							score: values[index],
+							type: type,
+						},
+					},
+				];
+
+				if (type !== RETRIEVAL_TYPES.COSINE_SIM) {
+					newShapes.push({
+						id: arrow_id,
+						type: "arrow",
+						x: 150,
+						y: 150,
+						props: {
+							// @ts-ignore
+							text: Number(values[index]).toFixed(2).replace(/^0\./, "."),
+						},
+						meta: {
+							fromId: shape.id,
+							toId: id,
+						},
+					});
+				}
+
+				editor?.createShapes(newShapes);
+				if (RETRIEVAL_TYPES.COSINE_SIM !== type) {
+					editor.createBindings([
 						{
-							id: id,
-							type: "card",
-							x:
-								shape.x +
-								(type === RETRIEVAL_TYPES.EFFECTS
-									? // @ts-ignore
-									  shape.props.w + 300
-									: type === RETRIEVAL_TYPES.COSINE_SIM
-									? // @ts-ignore
-									  0
-									: // @ts-ignore
-									  -300 - shape.props.w),
-							y:
-								(type === RETRIEVAL_TYPES.COSINE_SIM ? 180 : 0) +
-								shape.y +
-								index * 130,
+							fromId: arrow_id,
+							toId: type === RETRIEVAL_TYPES.EFFECTS ? selectedShapes[0] : id,
+							type: "arrow",
 							props: {
-								feature: featureNumber.toString(),
-								description: descriptions[featureNumber]
-									? descriptions[featureNumber]
-									: "",
+								terminal: "start",
+								normalizedAnchor: { x: 1, y: 0.5 },
+								isExact: false,
+								isPrecise: true,
 							},
 						},
-					];
-
-					if (type !== RETRIEVAL_TYPES.COSINE_SIM) {
-						newShapes.push({
-							id: arrow_id,
+						{
+							fromId: arrow_id,
+							toId: type === RETRIEVAL_TYPES.EFFECTS ? id : selectedShapes[0],
 							type: "arrow",
-							x: 150,
-							y: 150,
 							props: {
-								// @ts-ignore
-								text: Number(values[index]).toFixed(2).replace(/^0\./, "."),
+								terminal: "end",
+								normalizedAnchor: { x: 0, y: 0.5 },
+								isExact: false,
+								isPrecise: true,
 							},
-						});
-					}
-
-					editor?.createShapes(newShapes);
-					if (RETRIEVAL_TYPES.COSINE_SIM !== type) {
-						editor.createBindings([
-							{
-								fromId: arrow_id,
-								toId: type === RETRIEVAL_TYPES.EFFECTS ? selectedShapes[0] : id,
-								type: "arrow",
-								props: {
-									terminal: "start",
-									normalizedAnchor: { x: 1, y: 0.5 },
-									isExact: false,
-									isPrecise: true,
-								},
-							},
-							{
-								fromId: arrow_id,
-								toId: type === RETRIEVAL_TYPES.EFFECTS ? id : selectedShapes[0],
-								type: "arrow",
-								props: {
-									terminal: "end",
-									normalizedAnchor: { x: 0, y: 0.5 },
-									isExact: false,
-									isPrecise: true,
-								},
-							},
-						]);
-					}
-				});
+						},
+					]);
+				}
+			});
 
 			editor.setSelectedShapes(shapes);
 		}
@@ -345,35 +400,23 @@ const CustomUi = track(() => {
 
 	useEffect(() => {
 		async function handleKeyDown(e: KeyboardEvent) {
-			console.log(e);
 			// Check for Cmd + Shift + key combination
 			if (e.shiftKey) {
 				switch (e.key) {
-					case "E":
-						console.log("Cmd + Shift + e pressed");
-						// Add your custom action here
-						await addFeaturesToGraph(RETRIEVAL_TYPES.EFFECTS);
-
-						break;
-					case "D":
-						console.log("Cmd + Shift + d pressed");
-						// Add your custom action here
-						await addFeaturesToGraph(RETRIEVAL_TYPES.ACTIONS);
-						break;
-					case "O":
-						console.log("Cmd + Shift + o pressed");
-						// Add your custom action here
-						await addFeaturesToGraph(RETRIEVAL_TYPES.COSINE_SIM);
-						break;
-					case "I":
-						console.log("Cmd + Shift + i pressed");
-						// Add your custom action here
-						await addFeaturesToGraph(RETRIEVAL_TYPES.COSINE_SIM);
-						break;
 					case "J":
 						console.log("Cmd + Shift + j pressed");
 						// Add your custom action here
+						await addFeaturesToGraph(RETRIEVAL_TYPES.COSINE_SIM);
+						break;
+					case "U":
+						console.log("Cmd + Shift + U pressed");
+						// Add your custom action here
 						await addFeaturesToGraph(RETRIEVAL_TYPES.ACTIONS);
+						break;
+					case "I":
+						console.log("Cmd + Shift + I pressed");
+						// Add your custom action here
+						await addFeaturesToGraph(RETRIEVAL_TYPES.EFFECTS);
 						break;
 					case "K":
 						console.log("Cmd + Shift + k pressed");
@@ -433,6 +476,10 @@ function App() {
 	const [isSearchFocused, setIsSearchFocused] = useState(false);
 
 	useEffect(() => {
+		setInputFeature(featureNumber.toString());
+	}, [featureNumber]);
+
+	useEffect(() => {
 		const delayDebounceFn = setTimeout(async () => {
 			if (searchQuery.trim().length < 2) {
 				setSearchResults([]);
@@ -479,6 +526,27 @@ function App() {
 		}
 	};
 
+	useEffect(() => {
+		if (editor) {
+			const { width, height } = editor.getViewportPageBounds();
+			const centerX = width / 2;
+			const centerY = height / 2;
+
+			editor.createShapes([
+				{
+					id: createShapeId(),
+					type: "card",
+					x: centerX,
+					y: centerY,
+					props: {
+						feature: "10138",
+						description: "locations, particularly related to London",
+					},
+				},
+			]);
+		}
+	}, [editor]);
+
 	return (
 		<FeatureContext.Provider value={{ featureNumber, setFeatureNumber }}>
 			<div style={{ position: "fixed", inset: 0 }}>
@@ -486,6 +554,39 @@ function App() {
 					// components={components}
 					shapeUtils={customShape}
 					onMount={(editor: Editor) => {
+						editor.sideEffects.registerAfterDeleteHandler("shape", (shape) => {
+							if (shape.type === "card") {
+								const shapeId = shape.id;
+
+								const connections = editor.store.allRecords().filter((item) => {
+									// @ts-ignore
+									return (
+										item.meta.fromId == shapeId || item.meta.toId == shapeId
+									);
+								});
+
+								connections.forEach((connection) => {
+									// @ts-ignore
+									editor.deleteShape(connection.id);
+								});
+							}
+
+							// // grab the parent of the shape and check if it's a frame:
+							// const parentShape = editor.getShape(shape.parentId);
+							// if (parentShape && parentShape.type === "frame") {
+							// 	// if it is, get the IDs of all its remaining children:
+							// 	const siblings = editor.getSortedChildIdsForParent(
+							// 		parentShape.id
+							// 	);
+
+							// 	// if there are none (so the frame is empty), delete the frame:
+							// 	if (siblings.length === 0) {
+							// 		editor.deleteShape(parentShape.id);
+							// 	}
+							// }
+							return;
+						});
+
 						setEditor(editor);
 					}}
 				>
@@ -532,7 +633,7 @@ function App() {
 								}}
 								onChange={(e) => setSearchQuery(e.target.value)}
 							/>
-							{isSearchFocused && searchResults.length > 0 && (
+							{isSearchFocused && searchResults && searchResults.length > 0 && (
 								<div className="search-results">
 									{searchResults.map((result, index) => (
 										<div
@@ -541,6 +642,7 @@ function App() {
 											onMouseDown={() => {
 												setFeatureNumber(result[1]);
 												setInputFeature(result[1]);
+												setSearchQuery(result[0]);
 												setSearchResults([]);
 											}}
 										>
