@@ -19,6 +19,7 @@ import {
 	createShapeId,
 	TLShapeUtilCanBindOpts,
 	TLShapeId,
+	// TLOnBeforeUpdateHandler,
 } from "tldraw";
 import "tldraw/tldraw.css";
 import {
@@ -28,7 +29,7 @@ import {
 	fetchTopActions,
 	fetchTopEffects,
 	fetchCoOccurringEffects,
-	MIN_CARD_HEIGHT,
+	// MIN_CARD_HEIGHT,
 } from "./utils";
 import { Retrieval, RETRIEVAL_TYPES } from "./types";
 
@@ -37,6 +38,15 @@ const FeatureContext = createContext<
 	| {
 			featureNumber: number;
 			setFeatureNumber: React.Dispatch<React.SetStateAction<number>>;
+	  }
+	| undefined
+>(undefined);
+
+// Create a context for the search query
+const SearchQueryContext = createContext<
+	| {
+			searchQuery: string;
+			setSearchQuery: React.Dispatch<React.SetStateAction<string>>;
 	  }
 	| undefined
 >(undefined);
@@ -108,8 +118,8 @@ type CardShape = TLBaseShape<
 class CardShapeUtil extends ShapeUtil<CardShape> {
 	// @ts-ignore
 	static override type = "card" as const;
-	private element: HTMLElement | null = null;
-	private measurementDone: boolean = false;
+	// private element: HTMLElement | null = null;
+	// private measurementDone: boolean = false;
 
 	getDefaultProps(): CardShape["props"] {
 		return {
@@ -139,90 +149,83 @@ class CardShapeUtil extends ShapeUtil<CardShape> {
 	component(shape: CardShape) {
 		return (
 			<FeatureContext.Consumer>
-				{(context) => {
-					if (!context) {
-						throw new Error(
-							"FeatureContext must be used within a FeatureProvider"
-						);
-					}
-					return (
-						<HTMLContainer
-							className="card-container"
-							style={{
-								pointerEvents: "all",
-							}}
-						>
-							<div
-							// ref={(el) => {
-							// 	this.element = el;
-							// 	setTimeout(() => {
-							// 		console.log("Feature: " + shape.props.feature);
-							// 		console.log(el);
-							// 		if (el && !this.measurementDone) {
-							// 			const height = el.getBoundingClientRect().height;
-							// 			// + 10 considers padding of parent element
-							// 			const currentHeight = height + 10;
-							// 			console.log(el);
-							// 			console.log(el.getBoundingClientRect());
-							// 			console.log("current height: " + currentHeight);
-							// 			console.log("shape height: " + shape.props.h);
-							// 			this.editor?.updateShape({
-							// 				id: shape.id,
-							// 				type: "card",
-							// 				props: {
-							// 					...shape.props,
-							// 					h: Math.max(currentHeight, MIN_CARD_HEIGHT),
-							// 				},
-							// 			});
-							// 			this.measurementDone = true;
-							// 		}
-							// 	}, 200);
-							// }}
-							>
-								<div className="card-row">
-									<h2 style={{ margin: 0 }}>{shape.props.feature}</h2>
+				{(featureContext) => (
+					<SearchQueryContext.Consumer>
+						{(searchContext) => {
+							if (!featureContext || !searchContext) {
+								throw new Error(
+									"FeatureContext and SearchQueryContext must be used within their respective providers"
+								);
+							}
+							return (
+								<HTMLContainer
+									className="card-container"
+									style={{
+										pointerEvents: "all",
+									}}
+								>
 									<div
-										className="card-preview"
-										onClick={(ev) => {
-											context.setFeatureNumber(Number(shape.props.feature));
-										}}
-										onPointerDown={(e) => e.stopPropagation()}
-										onTouchStart={(e) => e.stopPropagation()}
-										onTouchEnd={(e) => e.stopPropagation()}
+									// ref={(el) => {
+									// 	this.element = el;
+									// 	setTimeout(() => {
+									// 		console.log("Feature: " + shape.props.feature);
+									// 		console.log(el);
+									// 		if (el && !this.measurementDone) {
+									// 			const height = el.getBoundingClientRect().height;
+									// 			// + 10 considers padding of parent element
+									// 			const currentHeight = height + 10;
+									// 			console.log(el);
+									// 			console.log(el.getBoundingClientRect());
+									// 			console.log("current height: " + currentHeight);
+									// 			console.log("shape height: " + shape.props.h);
+									// 			this.editor?.updateShape({
+									// 				id: shape.id,
+									// 				type: "card",
+									// 				props: {
+									// 					...shape.props,
+									// 					h: Math.max(currentHeight, MIN_CARD_HEIGHT),
+									// 				},
+									// 			});
+									// 			this.measurementDone = true;
+									// 		}
+									// 	}, 200);
+									// }}
 									>
-										🔍
-									</div>
-									<div className="card-stats">
-										<div>
-											{shape.props.fromFeature !== ""
-												? `${Number(shape.props.score)
-														.toFixed(2)
-														.replace(/^0\./, ".")} ${shape.props.type} for ${
-														shape.props.fromFeature
-												  }`
-												: ""}
-										</div>
-										{/* <div>
+										<div className="card-row">
+											<h2 style={{ margin: 0 }}>{shape.props.feature}</h2>
 											<div
-												style={{
-													marginLeft: "auto",
+												className="card-preview"
+												onClick={(ev) => {
+													featureContext.setFeatureNumber(
+														Number(shape.props.feature)
+													);
+													searchContext.setSearchQuery(shape.props.description);
 												}}
+												onPointerDown={(e) => e.stopPropagation()}
+												onTouchStart={(e) => e.stopPropagation()}
+												onTouchEnd={(e) => e.stopPropagation()}
 											>
-												{Number(shape.props.score)
-													? Number(shape.props.score)
-															.toFixed(2)
-															.replace(/^0\./, ".")
-													: ""}{" "}
-												{shape.props.type.slice(0, 3).toUpperCase()}
+												🔍
 											</div>
-										</div> */}
+											<div className="card-stats">
+												<div>
+													{shape.props.fromFeature !== ""
+														? `${Number(shape.props.score)
+																.toFixed(2)
+																.replace(/^0\./, ".")} ${
+																shape.props.type
+														  } for ${shape.props.fromFeature}`
+														: ""}
+												</div>
+											</div>
+										</div>
+										<span>{shape.props.description}</span>
 									</div>
-								</div>
-								<span>{shape.props.description}</span>
-							</div>
-						</HTMLContainer>
-					);
-				}}
+								</HTMLContainer>
+							);
+						}}
+					</SearchQueryContext.Consumer>
+				)}
 			</FeatureContext.Consumer>
 		);
 	}
@@ -465,13 +468,13 @@ const CustomUi = track(() => {
 
 function App() {
 	const [featureNumber, setFeatureNumber] = useState(10138);
+	const [searchQuery, setSearchQuery] = useState("");
 
 	const [editor, setEditor] = useState<Editor | null>(null);
 
 	const [inputFeature, setInputFeature] = useState(featureNumber.toString());
 
 	// Search query
-	const [searchQuery, setSearchQuery] = useState("");
 	const [searchResults, setSearchResults] = useState([]);
 	const [isSearchFocused, setIsSearchFocused] = useState(false);
 
@@ -549,150 +552,173 @@ function App() {
 
 	return (
 		<FeatureContext.Provider value={{ featureNumber, setFeatureNumber }}>
-			<div style={{ position: "fixed", inset: 0 }}>
-				<Tldraw
-					// components={components}
-					shapeUtils={customShape}
-					onMount={(editor: Editor) => {
-						editor.sideEffects.registerAfterDeleteHandler("shape", (shape) => {
-							if (shape.type === "card") {
-								const shapeId = shape.id;
+			<SearchQueryContext.Provider value={{ searchQuery, setSearchQuery }}>
+				<div style={{ position: "fixed", inset: 0 }}>
+					<Tldraw
+						// components={components}
+						shapeUtils={customShape}
+						onMount={(editor: Editor) => {
+							editor.sideEffects.registerAfterDeleteHandler(
+								"shape",
+								(shape) => {
+									if (shape.type === "card") {
+										const shapeId = shape.id;
 
-								const connections = editor.store.allRecords().filter((item) => {
-									// @ts-ignore
-									return (
-										item.meta.fromId == shapeId || item.meta.toId == shapeId
+										const connections = editor.store
+											.allRecords()
+											.filter((item) => {
+												// @ts-ignore
+												return (
+													item.meta.fromId == shapeId ||
+													item.meta.toId == shapeId
+												);
+											});
+
+										connections.forEach((connection) => {
+											// @ts-ignore
+											editor.deleteShape(connection.id);
+										});
+									}
+
+									editor.sideEffects.registerBeforeChangeHandler(
+										"shape",
+										(prev, next) => {
+											console.log(prev);
+											if (next.type === "arrow" && prev.type === "arrow") {
+												return prev;
+											}
+											return next;
+										}
 									);
-								});
 
-								connections.forEach((connection) => {
-									// @ts-ignore
-									editor.deleteShape(connection.id);
-								});
-							}
+									// // grab the parent of the shape and check if it's a frame:
+									// const parentShape = editor.getShape(shape.parentId);
+									// if (parentShape && parentShape.type === "frame") {
+									// 	// if it is, get the IDs of all its remaining children:
+									// 	const siblings = editor.getSortedChildIdsForParent(
+									// 		parentShape.id
+									// 	);
 
-							// // grab the parent of the shape and check if it's a frame:
-							// const parentShape = editor.getShape(shape.parentId);
-							// if (parentShape && parentShape.type === "frame") {
-							// 	// if it is, get the IDs of all its remaining children:
-							// 	const siblings = editor.getSortedChildIdsForParent(
-							// 		parentShape.id
-							// 	);
+									// 	// if there are none (so the frame is empty), delete the frame:
+									// 	if (siblings.length === 0) {
+									// 		editor.deleteShape(parentShape.id);
+									// 	}
+									// }
+									return;
+								}
+							);
 
-							// 	// if there are none (so the frame is empty), delete the frame:
-							// 	if (siblings.length === 0) {
-							// 		editor.deleteShape(parentShape.id);
-							// 	}
-							// }
-							return;
-						});
-
-						setEditor(editor);
+							setEditor(editor);
+						}}
+					>
+						<CustomUi />
+					</Tldraw>
+				</div>
+				<div
+					style={{
+						position: "fixed",
+						top: "440px",
+						left: 4,
 					}}
 				>
-					<CustomUi />
-				</Tldraw>
-			</div>
-			<div
-				style={{
-					position: "fixed",
-					top: "440px",
-					left: 4,
-				}}
-			>
-				<div className="feature-controls">
-					<div className="form-container">
-						<form onSubmit={handleSubmit} className="input-container">
-							<input
-								className="feature-input"
-								type="number"
-								value={inputFeature}
-								onChange={(e) => {
-									setInputFeature(e.target.value);
-								}}
-								placeholder="Enter feature number"
-							/>
-							<button className="feature-submit" type="submit">
-								Update
-							</button>
-						</form>
+					<div className="feature-controls">
+						<div className="form-container">
+							<form onSubmit={handleSubmit} className="input-container">
+								<input
+									className="feature-input"
+									type="number"
+									value={inputFeature}
+									onChange={(e) => {
+										setInputFeature(e.target.value);
+									}}
+									placeholder="Enter feature number"
+								/>
+								<button className="feature-submit" type="submit">
+									Update
+								</button>
+							</form>
 
-						<div className="search-container">
-							<input
-								className="search-input"
-								type="text"
-								placeholder="Search by description"
-								value={searchQuery}
-								onFocus={async () => {
-									const data = await fetchSearchResults(searchQuery);
-									setSearchResults(data);
-									setIsSearchFocused(true);
-								}}
-								onBlur={() => {
-									setTimeout(() => setIsSearchFocused(false), 100);
-								}}
-								onChange={(e) => setSearchQuery(e.target.value)}
-							/>
-							{isSearchFocused && searchResults && searchResults.length > 0 && (
-								<div className="search-results">
-									{searchResults.map((result, index) => (
-										<div
-											key={index}
-											className="search-result-item"
-											onMouseDown={() => {
-												setFeatureNumber(result[1]);
-												setInputFeature(result[1]);
-												setSearchQuery(result[0]);
-												setSearchResults([]);
-											}}
-										>
-											<span className="result-number">{result[1]}</span>
-											<span className="result-description">{result[0]}</span>
+							<div className="search-container">
+								<input
+									className="search-input"
+									type="text"
+									placeholder="Search by description"
+									value={searchQuery}
+									onFocus={async () => {
+										const data = await fetchSearchResults(searchQuery);
+										setSearchResults(data);
+										setIsSearchFocused(true);
+									}}
+									onBlur={() => {
+										setTimeout(() => setIsSearchFocused(false), 100);
+									}}
+									onChange={(e) => setSearchQuery(e.target.value)}
+								/>
+								{isSearchFocused &&
+									searchResults &&
+									searchResults.length > 0 && (
+										<div className="search-results">
+											{searchResults.map((result, index) => (
+												<div
+													key={index}
+													className="search-result-item"
+													onMouseDown={() => {
+														setFeatureNumber(result[1]);
+														setInputFeature(result[1]);
+														setSearchQuery(result[0]);
+														setSearchResults([]);
+													}}
+												>
+													<span className="result-number">{result[1]}</span>
+													<span className="result-description">
+														{result[0]}
+													</span>
+												</div>
+											))}
 										</div>
-									))}
-								</div>
-							)}
+									)}
+							</div>
 						</div>
 					</div>
 				</div>
-			</div>
-			<iframe
-				src={`https://neuronpedia.org/gemma-2b/6-res-jb/${featureNumber}?embed=true`}
-				title="Neuronpedia"
-				className="neuronpedia-iframe"
-				style={{
-					pointerEvents: "auto",
-					overflow: "auto",
-					width: "400px",
-					height: "400px",
-					border: "1px solid lightgrey",
-					borderTopRightRadius: "10px",
-					boxShadow: "0 0 10px 0 rgba(0, 0, 0, 0.1)",
-					position: "fixed",
-					top: 44,
-					left: 4,
-				}}
-			></iframe>
-			<button
-				className="insert-feature"
-				onClick={() => createCard(featureNumber)}
-			>
-				<svg
-					width="16"
-					height="16"
-					viewBox="0 0 24 24"
-					fill="none"
-					xmlns="http://www.w3.org/2000/svg"
+				<iframe
+					src={`https://neuronpedia.org/gemma-2b/6-res-jb/${featureNumber}?embed=true`}
+					title="Neuronpedia"
+					className="neuronpedia-iframe"
+					style={{
+						pointerEvents: "auto",
+						overflow: "auto",
+						width: "400px",
+						height: "400px",
+						border: "1px solid lightgrey",
+						borderTopRightRadius: "10px",
+						boxShadow: "0 0 10px 0 rgba(0, 0, 0, 0.1)",
+						position: "fixed",
+						top: 44,
+						left: 4,
+					}}
+				></iframe>
+				<button
+					className="insert-feature"
+					onClick={() => createCard(featureNumber)}
 				>
-					<path
-						d="M5 12H19M19 12L12 5M19 12L12 19"
-						stroke="currentColor"
-						strokeWidth="2"
-						strokeLinecap="round"
-						strokeLinejoin="round"
-					/>
-				</svg>
-			</button>
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						xmlns="http://www.w3.org/2000/svg"
+					>
+						<path
+							d="M5 12H19M19 12L12 5M19 12L12 19"
+							stroke="currentColor"
+							strokeWidth="2"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+						/>
+					</svg>
+				</button>
+			</SearchQueryContext.Provider>
 		</FeatureContext.Provider>
 	);
 }
