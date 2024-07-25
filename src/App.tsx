@@ -19,6 +19,9 @@ import {
 	createShapeId,
 	TLShapeUtilCanBindOpts,
 	TLShapeId,
+	TLRecord,
+	useToasts,
+	TLUiIconType,
 	// TLOnBeforeUpdateHandler,
 } from "tldraw";
 import "tldraw/tldraw.css";
@@ -245,40 +248,100 @@ const customShape = [CardShapeUtil];
 
 const CustomUi = track(() => {
 	const editor = useEditor();
+	const { addToast, removeToast } = useToasts();
+
+	const handleAddInfoToast = ({
+		title,
+		description,
+		icon = "dots-horizontal",
+	}: {
+		title: string;
+		description: string;
+		icon?: TLUiIconType;
+	}) => {
+		return addToast({
+			title: title,
+			description: description,
+			icon: icon,
+			actions: [
+				{
+					label: "Dismiss",
+					type: "normal",
+					onClick: () => {
+						console.log("Toast dismissed");
+					},
+				},
+			],
+		});
+	};
+
+	async function fetchDataForType(type: Retrieval, feature: string) {
+		switch (type) {
+			case RETRIEVAL_TYPES.EFFECTS:
+				return fetchTopEffects(Number(feature));
+			case RETRIEVAL_TYPES.COSINE_SIM:
+				return fetchCosineSim(Number(feature));
+			case RETRIEVAL_TYPES.CO_OCCURRING_EFFECTS:
+				return fetchCoOccurringEffects(Number(feature));
+			case RETRIEVAL_TYPES.ACTIONS:
+				return fetchTopActions(Number(feature));
+			default:
+				return { indices: [], values: [] };
+		}
+	}
+
+	function calculateCardPositions(
+		type: Retrieval,
+		shapeY: number,
+		totalCards: number
+	) {
+		const totalHeight = totalCards * 130;
+		return type === RETRIEVAL_TYPES.COSINE_SIM
+			? shapeY + 180
+			: shapeY - totalHeight / 2 + 65;
+	}
 
 	const addFeaturesToGraph = async (type: Retrieval) => {
 		const selectedShapes = editor?.getSelectedShapeIds();
-		if (selectedShapes.length == 1) {
-			const shape = editor?.getShape(selectedShapes[0]);
-			if (!shape) return;
-			// Make call to get the data
+		if (!selectedShapes || selectedShapes.length !== 1) {
+			const errorToastId = handleAddInfoToast({
+				title: "Error",
+				description: "Please select exactly one card.",
+				icon: "cross-2",
+			});
+			setTimeout(() => {
+				removeToast(errorToastId);
+			}, 3000);
+			return;
+		}
+		const shape: CardShape | undefined = editor?.getShape(selectedShapes[0]);
+		if (!shape || shape.type !== "card") {
+			const errorToastId = handleAddInfoToast({
+				title: "Error",
+				description: "Selected shape is not a card.",
+				icon: "cross-2",
+			});
+			setTimeout(() => {
+				removeToast(errorToastId);
+			}, 3000);
+			return;
+		}
+		// Make call to get the data
 
-			const topK = 10;
+		const topK = 10;
 
-			const { indices, values } =
-				RETRIEVAL_TYPES.EFFECTS === type
-					? await fetchTopEffects(
-							// @ts-ignore
-							shape.props.feature
-					  )
-					: RETRIEVAL_TYPES.COSINE_SIM === type
-					? await fetchCosineSim(
-							// @ts-ignore
-							shape.props.feature
-					  )
-					: RETRIEVAL_TYPES.CO_OCCURRING_EFFECTS === type
-					? await fetchCoOccurringEffects(
-							// @ts-ignore
-							shape.props.feature
-					  )
-					: await fetchTopActions(
-							// @ts-ignore
-							shape.props.feature
-					  );
+		const toastId = handleAddInfoToast({
+			title: "Fetching",
+			description: "Fetching " + type + " for " + shape.props.feature,
+		});
+
+		try {
+			const { indices, values } = await fetchDataForType(
+				type,
+				shape.props.feature
+			);
 
 			if (type === RETRIEVAL_TYPES.CO_OCCURRING_EFFECTS) {
-				console.log(indices);
-				console.log(values);
 				return;
 			}
 
@@ -309,13 +372,9 @@ const CustomUi = track(() => {
 				.slice(0, topK)
 				.filter((featureNumber: number) => featureNumber >= 0);
 
-			// Calculate the total height of all new cards
-			const totalHeight = features.length * 130;
-			// Calculate the starting y position to center the column
-			const startY =
-				type === RETRIEVAL_TYPES.COSINE_SIM
-					? shape.y + 180
-					: shape.y - totalHeight / 2 + 65;
+			const startY = calculateCardPositions(type, shape.y, features.length);
+
+			removeToast(toastId);
 
 			features.forEach((featureNumber: string, index: number) => {
 				const id = createShapeId();
@@ -343,7 +402,6 @@ const CustomUi = track(() => {
 							description: descriptions[featureNumber]
 								? descriptions[featureNumber]
 								: "",
-							// @ts-ignore
 							fromFeature: shape.props.feature,
 							score: values[index],
 							type: type,
@@ -357,6 +415,7 @@ const CustomUi = track(() => {
 						type: "arrow",
 						x: 150,
 						y: 150,
+						// isLocked: true,
 						props: {
 							// @ts-ignore
 							text: Number(values[index]).toFixed(2).replace(/^0\./, "."),
@@ -369,6 +428,7 @@ const CustomUi = track(() => {
 				}
 
 				editor?.createShapes(newShapes);
+
 				if (RETRIEVAL_TYPES.COSINE_SIM !== type) {
 					editor.createBindings([
 						{
@@ -398,6 +458,17 @@ const CustomUi = track(() => {
 			});
 
 			editor.setSelectedShapes(shapes);
+			removeToast(toastId);
+		} catch (error: any) {
+			removeToast(toastId);
+			const errorToastId = handleAddInfoToast({
+				title: "Error",
+				description: `Failed to fetch ${type} data: ${error.message}`,
+				icon: "cross-2",
+			});
+			setTimeout(() => {
+				removeToast(errorToastId);
+			}, 3000);
 		}
 	};
 
@@ -564,7 +635,7 @@ function App() {
 									if (shape.type === "card") {
 										const shapeId = shape.id;
 
-										const connections = editor.store
+										const connections: TLRecord[] = editor.store
 											.allRecords()
 											.filter((item) => {
 												// @ts-ignore
@@ -574,9 +645,30 @@ function App() {
 												);
 											});
 
-										connections.forEach((connection) => {
+										connections.forEach((connection: TLRecord) => {
+											console.log(connection);
 											// @ts-ignore
 											editor.deleteShape(connection.id);
+											// editor.updateShape(
+											// 	// @ts-ignore
+											// 	Object.assign(connection, {
+											// 		isLocked: false,
+											// 	})
+											// );
+											// editor.updateShape({
+											// 	// @ts-ignore
+											// 	id: connection.id,
+											// 	type: "arrow",
+											// 	isLocked: false,
+											// });
+
+											// editor.run(
+											// 	() => {
+											// 		// @ts-ignore
+											// 		editor.deleteShape(connection.id);
+											// 	},
+											// 	{ ignoreShapeLock: true }
+											// );
 										});
 									}
 
