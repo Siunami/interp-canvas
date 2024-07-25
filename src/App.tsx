@@ -195,7 +195,7 @@ class CardShapeUtil extends ShapeUtil<CardShape> {
 											<h2 style={{ margin: 0 }}>{shape.props.feature}</h2>
 											<div
 												className="card-preview"
-												onClick={(ev) => {
+												onClick={() => {
 													featureContext.setFeatureNumber(
 														Number(shape.props.feature)
 													);
