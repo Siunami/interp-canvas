@@ -246,6 +246,35 @@ class CardShapeUtil extends ShapeUtil<CardShape> {
 
 const customShape = [CardShapeUtil];
 
+type ArrowDirection = "right" | "down" | "left" | "up";
+
+const ArrowIcon = ({ direction = "right" }: { direction?: ArrowDirection }) => {
+	const rotationDegrees = {
+		right: 0,
+		down: 90,
+		left: 180,
+		up: 270,
+	};
+
+	return (
+		<svg
+			width="16"
+			height="16"
+			viewBox="0 0 24 24"
+			fill="none"
+			xmlns="http://www.w3.org/2000/svg"
+			style={{ transform: `rotate(${rotationDegrees[direction]}deg)` }}
+		>
+			<path
+				d="M5 12H19M19 12L12 5M19 12L12 19"
+				stroke="currentColor"
+				strokeWidth="2"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+			/>
+		</svg>
+	);
+};
 const CustomUi = track(() => {
 	const editor = useEditor();
 	const { addToast, removeToast } = useToasts();
@@ -548,10 +577,17 @@ function App() {
 	// Search query
 	const [searchResults, setSearchResults] = useState([]);
 	const [isSearchFocused, setIsSearchFocused] = useState(false);
+	const [showSearchResults, setShowSearchResults] = useState(false);
 
 	useEffect(() => {
 		setInputFeature(featureNumber.toString());
 	}, [featureNumber]);
+
+	useEffect(() => {
+		setShowSearchResults(
+			isSearchFocused && searchResults && searchResults.length > 0
+		);
+	}, [searchResults, isSearchFocused]);
 
 	useEffect(() => {
 		const delayDebounceFn = setTimeout(async () => {
@@ -577,26 +613,30 @@ function App() {
 
 	const createCard = async (feature: number) => {
 		if (editor) {
-			const { width, height } = editor.getViewportPageBounds();
-			const centerX = width / 2;
-			const centerY = height / 2;
+			const { x, y, width, height } = editor.getViewportPageBounds();
+			const topMiddleX = x + width / 2;
+			const topY = y + height * 0.15; // Add some padding from the top
 
 			const descriptions = await fetchDescriptions([feature]);
 			const description =
 				descriptions[feature.toString()] || "No description available";
 
+			const newShapeId = createShapeId();
+
 			editor.createShapes([
 				{
-					id: createShapeId(),
+					id: newShapeId,
 					type: "card",
-					x: centerX,
-					y: centerY,
+					x: topMiddleX,
+					y: topY,
 					props: {
-						feature: feature,
+						feature: feature.toString(),
 						description,
 					},
 				},
 			]);
+
+			editor.setSelectedShapes([newShapeId]);
 		}
 	};
 
@@ -709,7 +749,7 @@ function App() {
 				<div
 					style={{
 						position: "fixed",
-						top: "440px",
+						top: "446px",
 						left: 4,
 					}}
 				>
@@ -726,7 +766,7 @@ function App() {
 									placeholder="Enter feature number"
 								/>
 								<button className="feature-submit" type="submit">
-									Update
+									<ArrowIcon direction="up" />
 								</button>
 							</form>
 
@@ -735,6 +775,9 @@ function App() {
 									className="search-input"
 									type="text"
 									placeholder="Search by description"
+									style={{
+										borderRadius: showSearchResults ? "4px 4px 0 0" : "4px",
+									}}
 									value={searchQuery}
 									onFocus={async () => {
 										const data = await fetchSearchResults(searchQuery);
@@ -746,29 +789,31 @@ function App() {
 									}}
 									onChange={(e) => setSearchQuery(e.target.value)}
 								/>
-								{isSearchFocused &&
-									searchResults &&
-									searchResults.length > 0 && (
-										<div className="search-results">
-											{searchResults.map((result, index) => (
-												<div
-													key={index}
-													className="search-result-item"
-													onMouseDown={() => {
-														setFeatureNumber(result[1]);
-														setInputFeature(result[1]);
-														setSearchQuery(result[0]);
-														setSearchResults([]);
-													}}
-												>
-													<span className="result-number">{result[1]}</span>
-													<span className="result-description">
-														{result[0]}
-													</span>
-												</div>
-											))}
-										</div>
-									)}
+								{showSearchResults && (
+									<div
+										style={{
+											borderRadius: showSearchResults ? "0 0 4px 4px" : "4px",
+											marginTop: "-1px",
+										}}
+										className="search-results"
+									>
+										{searchResults.map((result, index) => (
+											<div
+												key={index}
+												className="search-result-item"
+												onMouseDown={() => {
+													setFeatureNumber(result[1]);
+													setInputFeature(result[1]);
+													setSearchQuery(result[0]);
+													setSearchResults([]);
+												}}
+											>
+												<span className="result-number">{result[1]}</span>
+												<span className="result-description">{result[0]}</span>
+											</div>
+										))}
+									</div>
+								)}
 							</div>
 						</div>
 					</div>
@@ -783,32 +828,19 @@ function App() {
 						width: "400px",
 						height: "400px",
 						border: "1px solid lightgrey",
-						borderTopRightRadius: "10px",
 						boxShadow: "0 0 10px 0 rgba(0, 0, 0, 0.1)",
 						position: "fixed",
 						top: 44,
 						left: 4,
+						borderTopLeftRadius: "4px",
+						borderBottomLeftRadius: "4px",
 					}}
 				></iframe>
 				<button
 					className="insert-feature"
 					onClick={() => createCard(featureNumber)}
 				>
-					<svg
-						width="16"
-						height="16"
-						viewBox="0 0 24 24"
-						fill="none"
-						xmlns="http://www.w3.org/2000/svg"
-					>
-						<path
-							d="M5 12H19M19 12L12 5M19 12L12 19"
-							stroke="currentColor"
-							strokeWidth="2"
-							strokeLinecap="round"
-							strokeLinejoin="round"
-						/>
-					</svg>
+					<ArrowIcon />
 				</button>
 			</SearchQueryContext.Provider>
 		</FeatureContext.Provider>
