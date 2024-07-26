@@ -11,7 +11,7 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@tldraw/tldraw": "2.3.0",
+		"@tldraw/tldraw": "2.4.0",
 		"@types/node": "^20.14.12",
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1"
