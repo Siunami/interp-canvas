@@ -27,7 +27,7 @@ import {
 	TldrawUiMenuItem,
 	DefaultToolbarContent,
 	// useIsToolSelected,
-	useTools,
+	// useTools,
 	DefaultToolbar,
 	// DefaultQuickActionsContent,
 	// TLOnBeforeUpdateHandler,
@@ -152,7 +152,7 @@ class PromptShapeUtil extends ShapeUtil<PromptShape> {
 	component(shape: PromptShape) {
 		return (
 			<div
-				ref={(el) => {
+				ref={() => {
 					// if (el) {
 					// 	const newHeight = el.getBoundingClientRect().height;
 					// 	if (newHeight !== shape.props.h) {
@@ -278,7 +278,7 @@ class CardShapeUtil extends ShapeUtil<CardShape> {
 							}
 							return (
 								<div
-									ref={(el) => {
+									ref={() => {
 										// if (el) {
 										// 	const newHeight = el.getBoundingClientRect().height;
 										// 	if (newHeight !== shape.props.h) {
@@ -812,6 +812,7 @@ const CustomUi = track(() => {
 	}
 
 	async function handleMouseDown(e: MouseEvent) {
+		e.preventDefault();
 		console.log("mouse down");
 		const selectedShapes = editor?.getSelectedShapes();
 		const allShapes = editor?.getCurrentPageShapeIds();
@@ -933,7 +934,7 @@ const CustomUi = track(() => {
 
 function CustomToolbar() {
 	const editor = useEditor();
-	const tools = useTools();
+	// const tools = useTools();
 
 	const [selected, setSelected] = useState(false);
 	const [text, setText] = useState("");
