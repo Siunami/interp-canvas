@@ -40,6 +40,8 @@ import {
 	fetchTopActions,
 	fetchTopEffects,
 	fetchCoOccurringEffects,
+	// fetchActivations,
+	fetchCosineSimEffects,
 	// MIN_CARD_HEIGHT,
 } from "./utils";
 import { Retrieval, RETRIEVAL_TYPES } from "./types";
@@ -118,6 +120,7 @@ type PromptShape = TLBaseShape<
 		w: number;
 		h: number;
 		text: string;
+		activations: [value: number, feature: string][];
 	}
 >;
 
@@ -127,8 +130,9 @@ class PromptShapeUtil extends ShapeUtil<PromptShape> {
 	getDefaultProps() {
 		return {
 			w: 250,
-			h: 120,
+			h: 100,
 			text: "",
+			activations: [],
 		};
 	}
 
@@ -149,25 +153,25 @@ class PromptShapeUtil extends ShapeUtil<PromptShape> {
 		return (
 			<div
 				ref={(el) => {
-					if (el) {
-						const newHeight = el.getBoundingClientRect().height;
-						if (newHeight !== shape.props.h) {
-							// Update the shape's height in the editor
-							this.editor?.updateShape({
-								id: shape.id,
-								type: "card",
-								props: {
-									...shape.props,
-									h: newHeight,
-								},
-							});
-						}
-					}
+					// if (el) {
+					// 	const newHeight = el.getBoundingClientRect().height;
+					// 	if (newHeight !== shape.props.h) {
+					// 		// Update the shape's height in the editor
+					// 		this.editor?.updateShape({
+					// 			id: shape.id,
+					// 			type: "card",
+					// 			props: {
+					// 				...shape.props,
+					// 				h: newHeight,
+					// 			},
+					// 		});
+					// 	}
+					// }
 				}}
 				className="card-container"
 				style={{
 					pointerEvents: "all",
-					minHeight: "90px",
+					minHeight: "100px",
 				}}
 			>
 				<h2
@@ -178,7 +182,27 @@ class PromptShapeUtil extends ShapeUtil<PromptShape> {
 				>
 					Prompt
 				</h2>
-				{shape.props.text}
+				{shape.props.activations.length === 0
+					? shape.props.text
+					: shape.props.activations.map((activation) => {
+							return (
+								<>
+									<span
+										style={{
+											backgroundColor: `rgba(0, 100, 255, ${Math.min(
+												Number(activation[1]) / 60,
+												1
+											)})`,
+											display: "inline-block",
+										}}
+										title={activation[1]}
+										data-tooltip={activation[1]}
+									>
+										{activation[0]}
+									</span>
+								</>
+							);
+					  })}
 			</div>
 		);
 	}
@@ -205,6 +229,7 @@ type CardShape = TLBaseShape<
 		fromFeature: string;
 		score: number | null;
 		type: string;
+		hovered: boolean;
 	}
 >;
 
@@ -217,12 +242,13 @@ class CardShapeUtil extends ShapeUtil<CardShape> {
 	getDefaultProps(): CardShape["props"] {
 		return {
 			w: 250,
-			h: 90,
+			h: 100,
 			feature: "10138",
 			description: "related to London",
 			fromFeature: "",
 			score: null,
 			type: "",
+			hovered: false,
 		};
 	}
 
@@ -253,20 +279,20 @@ class CardShapeUtil extends ShapeUtil<CardShape> {
 							return (
 								<div
 									ref={(el) => {
-										if (el) {
-											const newHeight = el.getBoundingClientRect().height;
-											if (newHeight !== shape.props.h) {
-												// Update the shape's height in the editor
-												this.editor?.updateShape({
-													id: shape.id,
-													type: "card",
-													props: {
-														...shape.props,
-														h: newHeight,
-													},
-												});
-											}
-										}
+										// if (el) {
+										// 	const newHeight = el.getBoundingClientRect().height;
+										// 	if (newHeight !== shape.props.h) {
+										// 		// Update the shape's height in the editor
+										// 		this.editor?.updateShape({
+										// 			id: shape.id,
+										// 			type: "card",
+										// 			props: {
+										// 				...shape.props,
+										// 				h: newHeight,
+										// 			},
+										// 		});
+										// 	}
+										// }
 										// setTimeout(() => {
 										// 	console.log(shape.props.feature);
 										// 	console.log(shape.props.description);
@@ -308,7 +334,11 @@ class CardShapeUtil extends ShapeUtil<CardShape> {
 									className="card-container"
 									style={{
 										pointerEvents: "all",
-										minHeight: "90px",
+										minHeight: "100px",
+										backgroundColor: shape.props.hovered
+											? "lightgrey"
+											: "white",
+										position: "relative", // Add this to make absolute positioning work
 									}}
 								>
 									<div className="card-row">
@@ -340,6 +370,26 @@ class CardShapeUtil extends ShapeUtil<CardShape> {
 										</div>
 									</div>
 									<span>{shape.props.description}</span>
+									{/* <input
+										type="range"
+										min="0"
+										max="100"
+										defaultValue="50"
+										style={{
+											position: "absolute",
+											right: "-65px",
+											top: "50%",
+											transform: "translateY(-50%) rotate(-90deg)",
+											transformOrigin: "center",
+											width: "100px",
+											height: "20px",
+										}}
+										onPointerDown={(e) => e.stopPropagation()}
+										onChange={(e) => {
+											// Handle slider value change here
+											console.log("Slider value:", e.target.value);
+										}}
+									/> */}
 								</div>
 							);
 						}}
@@ -433,6 +483,8 @@ const CustomUi = track(() => {
 				return fetchCoOccurringEffects(Number(feature));
 			case RETRIEVAL_TYPES.ACTIONS:
 				return fetchTopActions(Number(feature));
+			case RETRIEVAL_TYPES.COSINE_SIM_EFFECTS:
+				return fetchCosineSimEffects(Number(feature));
 			default:
 				return { indices: [], values: [] };
 		}
@@ -622,150 +674,230 @@ const CustomUi = track(() => {
 			}, 3000);
 		}
 	};
+	async function handleKeyDown(e: KeyboardEvent) {
+		if (e.shiftKey) {
+			const selectedShapes = editor?.getSelectedShapes();
 
-	useEffect(() => {
-		async function handleKeyDown(e: KeyboardEvent) {
-			if (e.shiftKey) {
-				const selectedShapes = editor?.getSelectedShapes();
+			const steering = selectedShapes.filter((shape) => shape.type === "card");
+			const prompt = selectedShapes.filter((shape) => shape.type === "prompt");
 
-				console.log(selectedShapes);
+			switch (e.key) {
+				case "J":
+					console.log("Shift + j pressed");
+					await addFeaturesToGraph(RETRIEVAL_TYPES.COSINE_SIM);
+					break;
+				case "U":
+					console.log("Shift + U pressed");
+					await addFeaturesToGraph(RETRIEVAL_TYPES.ACTIONS);
+					break;
+				case "I":
+					console.log("Shift + I pressed");
+					await addFeaturesToGraph(RETRIEVAL_TYPES.EFFECTS);
+					break;
+				// case "K":
+				// 	console.log("Shift + k pressed");
+				// 	await addFeaturesToGraph(RETRIEVAL_TYPES.CO_OCCURRING_EFFECTS);
+				// 	break;
+				// case "E":
+				// 	console.log("Shift + e pressed");
+				// 	await addFeaturesToGraph(RETRIEVAL_TYPES.COSINE_SIM_EFFECTS);
+				// 	break;
+				case "P":
+					console.log("Shift + p pressed");
+					// Add a success toast
+					const promptToast = createToast({
+						title: "Success",
+						description: "This will eventually generate text",
+						icon: "check",
+						severity: "success",
+					});
+					setTimeout(() => {
+						removeToast(promptToast);
+					}, 3000);
+					break;
+				case "S":
+					console.log("Shift + s pressed");
 
-				const steering = selectedShapes.filter(
-					(shape) => shape.type === "card"
-				);
-				const prompt = selectedShapes.filter(
-					(shape) => shape.type === "prompt"
-				);
-
-				switch (e.key) {
-					case "J":
-						console.log("Shift + j pressed");
-						await addFeaturesToGraph(RETRIEVAL_TYPES.COSINE_SIM);
-						break;
-					case "U":
-						console.log("Shift + U pressed");
-						await addFeaturesToGraph(RETRIEVAL_TYPES.ACTIONS);
-						break;
-					case "I":
-						console.log("Shift + I pressed");
-						await addFeaturesToGraph(RETRIEVAL_TYPES.EFFECTS);
-						break;
-					case "K":
-						console.log("Shift + k pressed");
-						await addFeaturesToGraph(RETRIEVAL_TYPES.CO_OCCURRING_EFFECTS);
-						break;
-					case "P":
-						console.log("Shift + p pressed");
-						// Add a success toast
-						const promptToast = createToast({
-							title: "Success",
-							description: "This will eventually generate text",
-							icon: "check",
-							severity: "success",
+					if (prompt.length < 1) {
+						createToast({
+							title: "Error",
+							description: "Please select a prompt.",
+							icon: "cross-2",
+							severity: "error",
 						});
-						setTimeout(() => {
-							removeToast(promptToast);
-						}, 3000);
-						break;
-					case "S":
-						console.log("Shift + s pressed");
+						return;
+					}
 
-						if (prompt.length < 1) {
-							createToast({
-								title: "Error",
-								description: "Please select a prompt.",
-								icon: "cross-2",
-								severity: "error",
-							});
-							return;
-						}
+					if (prompt.length > 1) {
+						createToast({
+							title: "Error",
+							description: "Please select only one prompt.",
+							icon: "cross-2",
+							severity: "error",
+						});
+						return;
+					}
 
-						if (prompt.length > 1) {
-							createToast({
-								title: "Error",
-								description: "Please select only one prompt.",
-								icon: "cross-2",
-								severity: "error",
-							});
-							return;
-						}
+					if (steering.length < 1) {
+						createToast({
+							title: "Error",
+							description: "Please select at least one feature.",
+							icon: "cross-2",
+							severity: "error",
+						});
+						return;
+					}
 
-						if (steering.length < 1) {
-							createToast({
-								title: "Error",
-								description: "Please select at least one feature.",
-								icon: "cross-2",
-								severity: "error",
-							});
-							return;
-						}
+					// Create arrows from each feature to the prompt
+					steering.forEach((featureShape) => {
+						const arrow_id = createShapeId();
 
-						// Create arrows from each feature to the prompt
-						steering.forEach((featureShape) => {
-							const arrow_id = createShapeId();
-
-							editor?.createShapes([
-								{
-									id: arrow_id,
-									type: "arrow",
-									x: 150,
-									y: 150,
-									isLocked: true,
-									props: {
-										text: "", // You can add text here if needed
-									},
-									meta: {
-										fromId: featureShape.id,
-										toId: prompt[0].id,
-									},
+						editor?.createShapes([
+							{
+								id: arrow_id,
+								type: "arrow",
+								x: 150,
+								y: 150,
+								isLocked: true,
+								props: {
+									text: "", // You can add text here if needed
 								},
-							]);
-
-							editor.createBindings([
-								{
-									fromId: arrow_id,
-									toId: featureShape.id,
-									type: "arrow",
-									props: {
-										terminal: "start",
-										normalizedAnchor: { x: 1, y: 0.5 },
-										isExact: false,
-										isPrecise: true,
-									},
-								},
-								{
-									fromId: arrow_id,
+								meta: {
+									fromId: featureShape.id,
 									toId: prompt[0].id,
-									type: "arrow",
-									props: {
-										terminal: "end",
-										normalizedAnchor: { x: 0, y: 0.5 },
-										isExact: false,
-										isPrecise: true,
-									},
 								},
-							]);
-						});
+							},
+						]);
 
-						// Add a success toast
-						const toastID = createToast({
-							title: "Success",
-							description: "Arrows created from features to prompt.",
-							icon: "check",
-							severity: "success",
-						});
-						setTimeout(() => {
-							removeToast(toastID);
-						}, 3000);
+						editor.createBindings([
+							{
+								fromId: arrow_id,
+								toId: featureShape.id,
+								type: "arrow",
+								props: {
+									terminal: "start",
+									normalizedAnchor: { x: 1, y: 0.5 },
+									isExact: false,
+									isPrecise: true,
+								},
+							},
+							{
+								fromId: arrow_id,
+								toId: prompt[0].id,
+								type: "arrow",
+								props: {
+									terminal: "end",
+									normalizedAnchor: { x: 0, y: 0.5 },
+									isExact: false,
+									isPrecise: true,
+								},
+							},
+						]);
+					});
 
-						break;
-				}
+					// Add a success toast
+					const toastID = createToast({
+						title: "Success",
+						description: "Arrows created from features to prompt.",
+						icon: "check",
+						severity: "success",
+					});
+					setTimeout(() => {
+						removeToast(toastID);
+					}, 3000);
+
+					break;
 			}
 		}
+	}
 
+	async function handleMouseDown(e: MouseEvent) {
+		console.log("mouse down");
+		const selectedShapes = editor?.getSelectedShapes();
+		const allShapes = editor?.getCurrentPageShapeIds();
+		console.log(allShapes);
+		const allShapesData = [...allShapes]?.map((shapeId) =>
+			editor?.getShape(shapeId)
+		);
+		if (selectedShapes.length == 1 && selectedShapes[0].type === "card") {
+			allShapesData.forEach(async (shape) => {
+				if (
+					shape &&
+					shape.type === "card" &&
+					shape.id !== selectedShapes[0].id &&
+					// @ts-ignore
+					shape?.props.feature === selectedShapes[0].props.feature
+				) {
+					editor?.updateShape({
+						id: shape.id,
+						type: shape.type,
+						props: {
+							hovered: true,
+						},
+					});
+				} else if (shape && shape.type === "card") {
+					editor?.updateShape({
+						id: shape.id,
+						type: shape.type,
+						props: {
+							hovered: false,
+						},
+					});
+				}
+
+				// // show activation patterns on text
+				// if (shape && shape.type === "prompt") {
+				// 	console.log(shape);
+				// 	const activations = await fetchActivations(
+				// 		// @ts-ignore
+				// 		selectedShapes[0].props.feature,
+				// 		// @ts-ignore
+				// 		shape.props.text
+				// 	);
+				// 	console.log(activations);
+				// 	if (activations.length > 0) {
+				// 		editor.updateShape({
+				// 			id: shape.id,
+				// 			type: shape.type,
+				// 			props: {
+				// 				activations: activations,
+				// 			},
+				// 		});
+				// 	}
+				// }
+			});
+		} else {
+			allShapesData.forEach((shape) => {
+				if (shape && shape.type === "card") {
+					editor?.updateShape({
+						id: shape.id,
+						type: shape.type,
+						props: {
+							hovered: false,
+						},
+					});
+				}
+
+				// // show activation patterns on text
+				// if (shape && shape.type === "prompt") {
+				// 	editor.updateShape({
+				// 		id: shape.id,
+				// 		type: shape.type,
+				// 		props: {
+				// 			activations: [],
+				// 		},
+				// 	});
+				// }
+			});
+		}
+	}
+
+	useEffect(() => {
+		window.addEventListener("mousedown", handleMouseDown);
 		window.addEventListener("keydown", handleKeyDown);
 		return () => {
 			window.removeEventListener("keydown", handleKeyDown);
+			window.removeEventListener("mousedown", handleMouseDown);
 		};
 	});
 
@@ -872,6 +1004,15 @@ function App() {
 	const [searchResults, setSearchResults] = useState([]);
 	const [isSearchFocused, setIsSearchFocused] = useState(false);
 	const [showSearchResults, setShowSearchResults] = useState(false);
+
+	// const handleActivations = async () => {
+	// 	const activations = await fetchActivations(10138, "London");
+	// 	console.log(activations);
+	// };
+
+	// useEffect(() => {
+	// 	handleActivations();
+	// }, []);
 
 	useEffect(() => {
 		setInputFeature(featureNumber.toString());
@@ -993,7 +1134,6 @@ function App() {
 									editor.sideEffects.registerBeforeChangeHandler(
 										"shape",
 										(prev, next) => {
-											console.log(prev);
 											if (next.type === "arrow" && prev.type === "arrow") {
 												return prev;
 											}

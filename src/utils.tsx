@@ -6,10 +6,12 @@ const getBaseUrl = () => {
 		: "https://steering-explorer-server.vercel.app";
 };
 
-export const fetchCosineSim = async (index: number) => {
-	console.log("fetching: " + index);
+export const fetchCosineSim = async (feature: number) => {
+	console.log("fetching: " + feature);
 	try {
-		const response = await fetch(`${getBaseUrl()}/get_cos_sim?index=${index}`);
+		const response = await fetch(
+			`${getBaseUrl()}/get_cos_sim?feature=${feature}`
+		);
 		if (!response.ok) {
 			throw new Error("Network response was not ok");
 		}
@@ -101,5 +103,41 @@ export const fetchCoOccurringEffects = async (feature: number) => {
 		return rawData;
 	} catch (error) {
 		console.error("There was a problem fetching co-occurring effects:", error);
+	}
+};
+
+export const fetchCosineSimEffects = async (feature: number) => {
+	console.log("fetching cosine sim effects for feature: " + feature);
+	try {
+		const response = await fetch(
+			`${getBaseUrl()}/get_cosine_sim_effects?feature=${feature}`
+		);
+		if (!response.ok) {
+			throw new Error("Network response was not ok");
+		}
+		const rawData = await response.json();
+		return rawData;
+	} catch (error) {
+		console.error("There was a problem fetching cosine sim effects:", error);
+	}
+};
+
+export const fetchActivations = async (feature: number, text: string) => {
+	console.log(`fetching activations for feature: ${feature} and text: ${text}`);
+	try {
+		const response = await fetch(`${getBaseUrl()}/get_activations`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ feature, text }),
+		});
+		if (!response.ok) {
+			throw new Error("Network response was not ok");
+		}
+		const rawData = await response.json();
+		return rawData;
+	} catch (error) {
+		console.error("There was a problem fetching activations:", error);
 	}
 };
