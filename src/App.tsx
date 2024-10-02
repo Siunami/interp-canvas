@@ -811,12 +811,12 @@ const CustomUi = track(() => {
 		}
 	}
 
-	async function handleMouseDown(e: MouseEvent) {
-		e.preventDefault();
-		console.log("mouse down");
+	async function handleMouseDown() {
+		// e.preventDefault();
+		// console.log("mouse down");
 		const selectedShapes = editor?.getSelectedShapes();
 		const allShapes = editor?.getCurrentPageShapeIds();
-		console.log(allShapes);
+		// console.log(allShapes);
 		const allShapesData = [...allShapes]?.map((shapeId) =>
 			editor?.getShape(shapeId)
 		);
