@@ -993,7 +993,55 @@ const components: TLComponents = {
 	Toolbar: CustomToolbar,
 };
 
+function InfoModal({
+	isOpen,
+	onClose,
+}: {
+	isOpen: boolean;
+	onClose: () => void;
+}) {
+	if (!isOpen) return null;
+
+	return (
+		<div className="modal-overlay" onClick={onClose}>
+			<div className="modal-content" onClick={(e) => e.stopPropagation()}>
+				<h2>Welcome to EffectVis</h2>
+				<p>
+					EffectVis is a research prototype built to explore feature effects.
+					Commands to use the interface are described below. Note that the
+					interface makes requests to a Modal cloud GPU that needs to boot up
+					first. If you see an error after executing a command, try again. Once
+					the GPU boots up, requests should be fast.
+				</p>
+				<p>When a feature card is selected:</p>
+				<ul>
+					<li>
+						'Shift + I' allows you to query the feature effects which are added
+						to the canvas as a list of feature cards
+					</li>
+					<li>
+						'Shift + U' allows you to query the feature actions. These are the
+						features that cause the selected feature to activate more often.
+					</li>
+					<li>
+						'Shift + J' allows you to query for the list of cosine similar
+						feature directions
+					</li>
+				</ul>
+				<p>
+					You can read the accompanying research paper here:{" "}
+					<a href="">
+						Improving Steering Vectors by Targeting Sparse Autoencoder Features
+					</a>
+				</p>
+				<button onClick={onClose}>Close</button>
+			</div>
+		</div>
+	);
+}
+
 function App() {
+	const [isModalOpen, setIsModalOpen] = useState(true);
 	const [featureNumber, setFeatureNumber] = useState(10138);
 	const [searchQuery, setSearchQuery] = useState("");
 
@@ -1006,14 +1054,9 @@ function App() {
 	const [isSearchFocused, setIsSearchFocused] = useState(false);
 	const [showSearchResults, setShowSearchResults] = useState(false);
 
-	// const handleActivations = async () => {
-	// 	const activations = await fetchActivations(10138, "London");
-	// 	console.log(activations);
-	// };
-
-	// useEffect(() => {
-	// 	handleActivations();
-	// }, []);
+	const closeModal = () => {
+		setIsModalOpen(false);
+	};
 
 	useEffect(() => {
 		setInputFeature(featureNumber.toString());
@@ -1152,6 +1195,8 @@ function App() {
 						<CustomUi />
 					</Tldraw>
 				</div>
+				<InfoModal isOpen={isModalOpen} onClose={closeModal} />
+
 				<div
 					style={{
 						position: "fixed",
@@ -1252,5 +1297,4 @@ function App() {
 		</FeatureContext.Provider>
 	);
 }
-
 export default App;
